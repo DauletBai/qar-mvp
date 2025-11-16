@@ -1,7 +1,8 @@
-# Sum only non-negative numbers in the array and demonstrate JAL/JALR control flow
-    ADDI x1, x0, 0        # base pointer (bytes)
-    ADDI x2, x0, 6        # length (elements)
-    ADDI x10, x0, 0       # accumulator for positives
+.include "common.inc"
+
+    ADDI x1, x0, SRC_BASE   # base pointer (bytes)
+    ADDI x2, x0, ARRAY_LEN  # length (elements)
+    ADDI x10, x0, 0         # accumulator for positives
 
 loop:
     LW   x3, 0(x1)
@@ -13,14 +14,14 @@ skip_add:
     BNE  x2, x0, loop
 
 done:
-    JAL  x5, store_sum    # call subroutine
-    ADDI x12, x0, 0x123   # marker showing we returned
-    SW   x12, 68(x0)
+    JAL  x5, store_sum      # call subroutine
+    ADDI x12, x0, 0x123     # marker showing we returned
+    SW   x12, RETURN_FLAG_ADDR(x0)
     JAL  x0, program_end
 
 store_sum:
-    SW   x10, 64(x0)
+    SW   x10, STORE_SUM_ADDR(x0)
     JALR x0, x5, 0
 
 program_end:
-    ADDI x0, x0, 0        # final NOP
+    JAL  x0, program_end

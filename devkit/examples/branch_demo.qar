@@ -1,0 +1,22 @@
+.include "common.inc"
+
+    ADDI x1, x0, 5
+    ADDI x2, x0, -1
+    ADDI x3, x0, 0
+
+loop:
+    ADDI x3, x3, 1
+    ADDI x1, x1, -1
+    BGE  x1, x0, loop
+
+    ADDI x4, x0, 0xFFFFFFFF
+    ADDI x5, x0, 1
+    BGEU x4, x5, unsigned_ok
+    ADDI x6, x0, 0xBAD
+    JAL  x0, done
+
+unsigned_ok:
+    ADDI x6, x0, 0x600D
+
+done:
+    ADDI x0, x0, 0

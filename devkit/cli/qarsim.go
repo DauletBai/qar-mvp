@@ -30,6 +30,101 @@ type buildConfig struct {
 	dmemDepth  int
 }
 
+type sourceLine struct {
+	text string
+	file string
+	line int
+}
+
+type asmParser struct {
+	macros map[string]int32
+}
+
+func newAsmParser() *asmParser {
+	return &asmParser{
+		macros: map[string]int32{},
+	}
+}
+
+var macroTable map[string]int32
+
+func (p *asmParser) loadFile(path string) ([]sourceLine, error) {
+	var lines []sourceLine
+	if err := p.expandFile(path, &lines); err != nil {
+		return nil, err
+	}
+	return lines, nil
+}
+
+func (p *asmParser) expandFile(path string, out *[]sourceLine) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	dir := filepath.Dir(path)
+	lineNum := 0
+	for scanner.Scan() {
+		lineNum++
+		raw := scanner.Text()
+		trimmed := strings.TrimSpace(stripComment(raw))
+		if trimmed == "" {
+			continue
+		}
+		lower := strings.ToLower(trimmed)
+		switch {
+		case strings.HasPrefix(lower, ".include"):
+			start := strings.Index(trimmed, "\"")
+			end := strings.LastIndex(trimmed, "\"")
+			if start == -1 || end == start {
+				return fmt.Errorf("%s:%d: malformed .include directive", path, lineNum)
+			}
+			includePath := trimmed[start+1 : end]
+			if !filepath.IsAbs(includePath) {
+				includePath = filepath.Join(dir, includePath)
+			}
+			if err := p.expandFile(includePath, out); err != nil {
+				return err
+			}
+		case strings.HasPrefix(lower, ".equ"):
+			payload := strings.TrimSpace(trimmed[len(".equ"):])
+			payload = strings.ReplaceAll(payload, ",", " ")
+			fields := strings.Fields(payload)
+			if len(fields) < 2 {
+				return fmt.Errorf("%s:%d: .equ expects name and value", path, lineNum)
+			}
+			val, err := p.evalMacroValue(fields[1])
+			if err != nil {
+				return fmt.Errorf("%s:%d: %v", path, lineNum, err)
+			}
+			p.macros[strings.ToUpper(fields[0])] = val
+		default:
+			*out = append(*out, sourceLine{text: raw, file: path, line: lineNum})
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (p *asmParser) evalMacroValue(token string) (int32, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return 0, fmt.Errorf("empty macro value")
+	}
+	if val, ok := p.macros[strings.ToUpper(token)]; ok {
+		return val, nil
+	}
+	v, err := strconv.ParseInt(token, 0, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int32(v), nil
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -150,22 +245,18 @@ func exitErr(err error) {
 }
 
 func parseAssembly(path string) ([]asmLine, map[string]uint32, error) {
-	file, err := os.Open(path)
+	parser := newAsmParser()
+	lines, err := parser.loadFile(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
 	var insts []asmLine
 	labels := map[string]uint32{}
 	var pc uint32
-	lineNum := 0
 
-	for scanner.Scan() {
-		lineNum++
-		raw := scanner.Text()
-		line := stripComment(raw)
+	for _, src := range lines {
+		line := stripComment(src.text)
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -177,10 +268,10 @@ func parseAssembly(path string) ([]asmLine, map[string]uint32, error) {
 			}
 			label := strings.TrimSpace(line[:colon])
 			if label == "" {
-				return nil, nil, fmt.Errorf("line %d: empty label", lineNum)
+				return nil, nil, fmt.Errorf("%s:%d: empty label", src.file, src.line)
 			}
 			if _, exists := labels[label]; exists {
-				return nil, nil, fmt.Errorf("line %d: duplicate label %q", lineNum, label)
+				return nil, nil, fmt.Errorf("%s:%d: duplicate label %q", src.file, src.line, label)
 			}
 			labels[label] = pc
 			line = strings.TrimSpace(line[colon+1:])
@@ -197,12 +288,10 @@ func parseAssembly(path string) ([]asmLine, map[string]uint32, error) {
 		}
 		op := strings.ToUpper(fields[0])
 		args := parseArgs(strings.Join(fields[1:], " "))
-		insts = append(insts, asmLine{op: op, args: args, line: lineNum, raw: raw, pc: pc})
+		insts = append(insts, asmLine{op: op, args: args, line: src.line, raw: src.text, pc: pc})
 		pc += 4
 	}
-	if err := scanner.Err(); err != nil {
-		return nil, nil, err
-	}
+	macroTable = parser.macros
 	return insts, labels, nil
 }
 
@@ -507,14 +596,26 @@ func parseRegister(token string) (int, error) {
 }
 
 func parseImmediate(token string) (int32, error) {
+	token = strings.TrimSpace(token)
 	if token == "" {
 		return 0, errors.New("empty immediate")
+	}
+	if val, ok := lookupMacro(token); ok {
+		return val, nil
 	}
 	val, err := strconv.ParseInt(token, 0, 32)
 	if err != nil {
 		return 0, fmt.Errorf("invalid immediate %s", token)
 	}
 	return int32(val), nil
+}
+
+func lookupMacro(token string) (int32, bool) {
+	if macroTable == nil {
+		return 0, false
+	}
+	val, ok := macroTable[strings.ToUpper(token)]
+	return val, ok
 }
 
 func parseDataFile(path string) ([]uint32, error) {

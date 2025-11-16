@@ -1,0 +1,5 @@
+.equ ARRAY_LEN, 6
+.equ STORE_SUM_ADDR, 64
+.equ RETURN_FLAG_ADDR, 68
+.equ SRC_BASE, 0
+.equ DST_BASE, 128

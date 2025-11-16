@@ -15,6 +15,7 @@ The project began with the goal of creating a functional RV32I-style prototype C
 - **QAR-Core v0.1 — DONE.** Minimal RV32I execution path validated in simulation with automated testbenches.
 - **QAR-Core v0.2 — DONE.** RV32I subset expanded (SUB/logic/shifts/LW/SW/BEQ), data RAM introduced, and the sum-array reference program verified via assertions.
 - **QAR-Core v0.3 — DONE.** Control flow widened (BNE/BLT/JAL/JALR), the Go-based DevKit CLI/assembler (`qarsim`) now generates `program.hex`/`data.hex`, and verification includes randomized regressions plus a SymbiYosys harness.
+- **QAR-Core v0.4 — DONE.** Data memory now streams through a valid/ready interface, BGE/BGEU landed, minimal CSR/trap support (`CSRRW`, `ECALL`) is live, `qarsim` gained `.include`/`.equ` support with new example programs, and the SymbiYosys flow (BMC depth 8) + randomized wait-state regression are part of the documented workflow.
 
 ---
 
@@ -44,33 +45,33 @@ The project began with the goal of creating a functional RV32I-style prototype C
 
 ### ✔ Micro-programs + DevKit
 - Reference array stored in `devkit/examples/sum_positive.*`, assembled via `qarsim`
-- LW/SW/BEQ/BNE/BLT + JAL/JALR exercised inside the same test thanks to the callable subroutine
-- `default_nettype none`, deterministic assertions, randomized regression bench, and `formal/regfile/regfile.sby`
+- LW/SW + full branch set (`BEQ/BNE/BLT/BGE/BGEU`) plus JAL/JALR exercised inside the same test thanks to the callable subroutine and shared macro file (`common.inc`)
+- `default_nettype none`, deterministic assertions, randomized regression with handshake wait-states, and SymbiYosys (`formal/regfile/regfile.sby`, BMC depth 8)
 
 ---
 
 ## In Progress
 
-- External memory interface definition + handshake for future SoC/FPGA bring-up
-- Expanded ISA work (BGE/BGEU, system instructions, CSR skeleton)
-- qarsim feature backlog (macros, include files, richer examples)
-- QAR-OS v0.1 boot model (blocked on richer ISA + tooling)
+- Pipeline / hazard plan for single-cycle → two-stage migration
+- CSR/interrupt depth (CSRRS/CSRRC, MRET, IRQ entry/exit)
+- Instruction-memory handshake/caching strategy
+- QAR-OS v0.1 boot model (blocked on traps/interrupts/tooling polish)
 
 ---
 
 ## Next Steps (Short-term)
 
-1. Define and implement the external load/store handshake so DMEM can be swapped for FPGA-attached RAM.
-2. Extend ISA coverage (BGE/BGEU, JALR offsets, simple CSR/trap stubs) to support QAR-OS experiments.
-3. Grow qarsim: macro support, additional sample programs, and a friendlier UX for generating `program.hex`/`data.hex`.
-4. Broaden verification (additional SymbiYosys targets, negative/randomized programs, lint integration).
+1. Outline/implement a simple two-stage pipeline (or FSM) so the memory interface no longer stalls fetch.
+2. Expand CSR support (CSRRS/CSRRC, MRET) and add a basic interrupt flow for QAR-OS experiments.
+3. Expose an instruction-memory handshake (or cache stub) to ease FPGA bring-up.
+4. Broaden verification (additional SymbiYosys targets, CI automation, lint).
 5. Document contribution process (ROADMAP.md, CONTRIBUTING.md) and codify the release cadence.
 
 ---
 
-## Next Target: QAR-Core v0.4
+## Next Target: QAR-Core v0.5
 
-1. **Memory interface** — Provide a simple AXI-lite-style or handshake-based external DMEM port so the core can drop into FPGA/SoC shells.
-2. **ISA & system hooks** — Add the remaining branch/jump variants plus skeletal CSR/trap handling needed by QAR-OS.
-3. **Pipeline prep** — Document hazards and experiment with a two-stage pipeline or structured microcode to unblock higher clock targets.
-4. **Tooling & verification** — Enhance `qarsim`, expand the example suite, and extend SymbiYosys coverage beyond the register file.
+1. **Pipeline & hazards** — Introduce a two-stage pipeline or structured microcode and define hazard/interlock policy.
+2. **CSR/interrupt depth** — Add CSRRS/CSRRC, MRET, and IRQ entry/exit so traps can round-trip.
+3. **Instruction-memory interface** — Provide a fetch handshake/cache stub compatible with FPGA memories.
+4. **Tooling & verification** — Extend `qarsim`, grow the example suite, and add additional SymbiYosys targets plus CI wiring.

@@ -39,27 +39,29 @@ qar-mvp/
 
 ---
 
-## Current Core Capabilities (QAR-Core v0.2)
+## Current Core Capabilities (QAR-Core v0.4)
 
 ### Supported Instructions (RV32I subset)
 - ADDI, ADD, SUB, AND, OR, XOR, SLL, SRL
-- LW, SW
-- BEQ, BNE, BLT
+- LW, SW (through external valid/ready memory interface)
+- BEQ, BNE, BLT, BGE, BLTU, BGEU
 - JAL, JALR
+- CSRRW + ECALL (minimal CSR/trap skeleton)
 
 ### Micro-program + Data Memory
 - `program.hex` encodes a tiny RV32I routine that walks an integer array in `data.hex`, filters out negative values, sums the rest into `x10`, then calls a subroutine via `JAL/JALR` to persist the result.
 - `data.hex` seeds a 256-word RAM with the array data; address 64 (word index 16) is used to persist the sum and address 68 (index 17) records that the return path completed.
 
 ### Execution Model
-- Single-cycle control path, combinational ALU, and separate instruction/data memories (64-word IMEM, 256-word DMEM).
-- Register file exposes two read ports/one write port (x0 hardwired to zero), `default_nettype none` guards have been enabled across RTL, and SymbiYosys harnesses cover basic invariants.
+- Single-cycle core that now streams data memory transactions over a simple `mem_valid`/`mem_ready` handshake (internal RAM is still available for pure simulation via parameter).
+- Register file exposes two read ports/one write port (x0 hardwired to zero); `default_nettype none` guards plus SymbiYosys harnesses (BMC) cover the regfile.
+- Minimal CSR file (`mstatus`, `mtvec`, `mepc`, `mcause`) allows CSRRW and ECALL-driven trap redirects.
 
 ### Simulation Output Example
 ```
 QAR-Core: loading program from program.hex ...
 QAR-Core: loading data memory from data.hex ...
-=== QAR-Core v0.3 EXECUTION TEST ===
+=== QAR-Core v0.4 EXECUTION TEST ===
 Register x10 = 14 (expected 14)
 Data memory[16] = 14 (expected 14)
 Data memory[17] = 0x00000123 (expected 0x00000123)
@@ -68,21 +70,30 @@ Execution test completed.
 
 ### DevKit CLI (qarsim)
 
-The Go-based `qarsim` tool assembles `.qar` programs, generates `program.hex` / `data.hex`, and can launch simulations:
+The Go-based `qarsim` tool assembles `.qar` programs (with `.include` directives and `.equ` macro support), generates `program.hex` / `data.hex`, and can launch simulations:
 
 ```sh
 # Build (assemble) the default example
 go run ./devkit/cli build \
   --asm devkit/examples/sum_positive.qar \
   --data devkit/examples/sum_positive.data \
+  --imem 64 \
+  --dmem 256 \
   --program program.hex \
   --data-out data.hex
 
 # Assemble and immediately run the execution testbench
 go run ./devkit/cli run \
   --asm devkit/examples/sum_positive.qar \
-  --data devkit/examples/sum_positive.data
+  --data devkit/examples/sum_positive.data \
+  --imem 64 \
+  --dmem 256
 ```
+
+# Additional Examples
+- `devkit/examples/sum_positive.qar` — filters out negative values and exercises JAL/JALR.
+- `devkit/examples/mem_copy.qar` — copies a block of words via LW/SW.
+- `devkit/examples/branch_demo.qar` — demonstrates the BGE/BGEU flow control.
 
 ## Tools Required
 

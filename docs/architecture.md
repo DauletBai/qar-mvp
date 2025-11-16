@@ -27,6 +27,9 @@ This first milestone executes only the smallest useful slice of RV32I so that th
 - `BEQ`
 - `BNE`
 - `BLT`
+- `BGE`
+- `BLTU`
+- `BGEU`
 - `JAL`
 - `JALR`
 
@@ -77,7 +80,22 @@ This first milestone executes only the smallest useful slice of RV32I so that th
 
 ---
 
-## 6. Register File
+## 6. QAR-Core v0.4 Summary
+
+### What changed
+- Data memory access now flows through a proper `mem_valid`/`mem_ready` streaming interface, while an internal RAM remains available behind the `USE_INTERNAL_MEM` parameter for pure simulation.
+- Additional branches (`BGE`, `BGEU`) landed, and the core now exposes a minimal CSR/trap skeleton (`CSRRW`, `ECALL`, `mstatus`, `mtvec`, `mepc`, `mcause`) so DevKit programs can demonstrate supervisor-style flows.
+- The Go DevKit (`qarsim`) understands `.include` / `.equ` directives, which enables shared macro files like `devkit/examples/common.inc` and new example programs (filtered sum, mem copy, branch demo).
+- Verification injects randomized memory wait states and the SymbiYosys harness runs as part of the documented workflow (`sby -f formal/regfile/regfile.sby` at BMC depth 8).
+
+### Remaining gaps
+- Still single-cycle with manual stalls on loads/stores; no hazard detection or interrupt return path.
+- CSR support is intentionally tiny (no CSRRS/CSRRC/MRET), and instruction fetch remains ROM-like.
+- SymbiYosys only covers the register file today; datapath proofs remain TODO.
+
+---
+
+## 7. Register File
 
 The register file implements:
 - 32 general-purpose registers (x0..x31)
@@ -90,7 +108,7 @@ File: `qar-core/rtl/regfile.v`
 
 ---
 
-## 7. ALU
+## 8. ALU
 
 The ALU performs the following operations:
 
@@ -108,7 +126,7 @@ File: `qar-core/rtl/alu.v`
 
 ---
 
-## 8. Instruction Decode
+## 9. Instruction Decode
 
 The core decodes instructions according to RV32I encoding:
 - opcode
@@ -122,11 +140,13 @@ Currently supported cases:
 - `ADD`, `SUB`, `AND`, `OR`, `XOR`, `SLL`, `SRL` (opcode `0110011`, funct3/funct7 decode per RV32I spec)
 - `LW`  (opcode `0000011`, funct3 = `010`)
 - `SW`  (opcode `0100011`, funct3 = `010`)
-- `BEQ` (opcode `1100011`, funct3 = `000`)
+- `BEQ`, `BNE`, `BLT`, `BGE`, `BLTU`, `BGEU` (opcode `1100011`, funct3 selects branch type)
+- `JAL` (opcode `1101111`) and `JALR` (opcode `1100111`, funct3 = `000`)
+- `CSRRW` / `ECALL` (opcode `1110011`) for the minimal CSR/trap implementation
 
 ---
 
-## 9. Program Counter (PC)
+## 10. Program Counter (PC)
 
 The PC is:
 - 32-bit
@@ -135,7 +155,7 @@ The PC is:
 
 ---
 
-## 10. Instruction Memory
+## 11. Instruction Memory
 
 Instruction memory now consists of 64 words (aligned to 4-byte boundaries) so the sum-array routine fits comfortably with space for future experiments. It is initialized at simulation start via:
 
@@ -161,34 +181,33 @@ FE0116E3   # BNE  x2, x0, loop
 00028067   #          JALR x0, x5, 0
 ```
 
-## 11. Data Memory
+## 12. Data Memory
 
-- 256-word data RAM (`dmem[0]..dmem[255]`)
-- initialized from `data.hex` (first six entries set to `[1, -2, 3, 4, -5, 6]`)
-- single read/write port; loads are combinational reads, stores occur on the clock edge
-- register-file addresses always treated as byte addresses, but the MVP assumes word alignment
-- addresses `64` (word index 16) and `68` (index 17) are used by the reference program to store the sum and a return marker
+- External handshake: the core drives `mem_valid`, `mem_we`, `mem_addr`, `mem_wdata` and waits for `mem_ready`. Loads capture `mem_rdata` once `mem_ready` asserts, stalling the PC until the transaction completes.
+- Optional internal RAM (parameter `USE_INTERNAL_MEM=1`) still exists for lightweight simulations; it preloads from `data.hex` and responds immediately.
+- Reference default data sets the first six entries to `[1, -2, 3, 4, -5, 6]`; word indices 16 (`0x40`) and 17 (`0x44`) store the filtered sum and return marker respectively.
 
 ---
 
-## 12. Tooling: `qarsim` CLI
+## 13. Tooling: `qarsim` CLI
 
 - Go-based CLI located under `devkit/cli`, wired up through the repository `go.work`.
+- Supports `.include` and `.equ` directives so shared macro files (`devkit/examples/common.inc`) can define addresses/lengths once and be reused by `sum_positive`, `mem_copy`, and `branch_demo`.
 - `qarsim build` assembles `.qar` files + optional data descriptions into `program.hex` / `data.hex`, padding to configurable IMEM/DMEM depths.
 - `qarsim run` performs the build step and then invokes `./scripts/run_core_exec.sh` so end-to-end regressions are one command away.
 - Example: `go run ./devkit/cli run --asm devkit/examples/sum_positive.qar --data devkit/examples/sum_positive.data`.
 
 ---
 
-## 13. Verification Approach
+## 14. Verification Approach
 
 - **Deterministic benches** — `qar_core_exec_tb` asserts both register and memory outputs for the canonical example.
-- **Randomized regression** — `qar_core_random_tb` shuffles the first six data words with `$random` and checks that `uut.rf_inst.regs[10]` / `uut.dmem[16]` match recomputed sums across multiple iterations.
-- **SymbiYosys** — `formal/regfile/regfile.sby` proves x0 immutability and write-back correctness for the register file (`sby -f formal/regfile/regfile.sby`).
+- **Randomized regression** — `qar_core_random_tb` shuffles the first six data words with `$random` and injects random memory wait states to stress the load/store handshake logic.
+- **SymbiYosys** — `formal/regfile/regfile.sby` (BMC depth 8) proves x0 immutability and write-back correctness for the register file (`PATH=$HOME/.local/bin:$PATH sby -f formal/regfile/regfile.sby`).
 
 ---
 
-## 14. Core Execution Flow
+## 15. Core Execution Flow
 	1.	Fetch instruction at PC
 	2.	Decode fields
 	3.	Read registers
@@ -200,11 +219,11 @@ This is a single-cycle model.
 
 ⸻
 
-## 15. Target for QAR-Core v0.4
+## 16. Target for QAR-Core v0.5
 
-With qarsim, richer control flow, and baseline formal hooks in place, the next milestone focuses on system integration:
+With the streaming DMEM interface, CSR/trap skeleton, and richer DevKit in place, the next milestone focuses on synthesis-grade behavior:
 
-- **ISA/Flow control** — add the remaining branch/jump primitives (`BGE`, `BGEU`, `JALR` offsets with register indirection) plus rudimentary trap/CSR stubs.
-- **Memory interface** — define and implement an external data-memory handshake (AXI-lite style) so the core can plug into FPGA testbenches without touching internal RAM.
-- **Pipeline prep** — document the single-cycle hazards that will need attention, then experiment with a simple two-stage pipeline or microcode-friendly scheduler.
-- **Tooling** — extend `qarsim` with assembler conveniences (labels, numeric expressions, includes) and bundle multiple example programs under `devkit/examples/`.
+- **Pipeline & hazards** — explore a two-stage pipeline (IF/EX) or lightweight microcode so loads/stores no longer freeze fetch, and document how hazards/interlocks will work.
+- **CSR/interrupt depth** — add `CSRRS/CSRRC`, `MRET`, and a basic interrupt entry/exit so ECALL/IRQ flows can round-trip.
+- **Instruction-memory interface** — expose a handshake for instruction fetch (or an optional instruction cache) so the core can natively bind to FPGA block RAMs.
+- **Verification automation** — broaden SymbiYosys coverage beyond the register file (ALU/datapath modules) and hook the regression + formal runs into CI (GitHub Actions).

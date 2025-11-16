@@ -1,0 +1,16 @@
+.include "common.inc"
+
+    ADDI x1, x0, SRC_BASE   # source pointer
+    ADDI x2, x0, DST_BASE   # destination pointer
+    ADDI x3, x0, ARRAY_LEN  # element count
+
+copy_loop:
+    LW   x4, 0(x1)
+    SW   x4, 0(x2)
+    ADDI x1, x1, 4
+    ADDI x2, x2, 4
+    ADDI x3, x3, -1
+    BGE  x3, x0, copy_loop
+
+done:
+    ADDI x0, x0, 0
