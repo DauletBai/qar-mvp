@@ -33,7 +33,9 @@ module qar_core #(
 
     // External interrupt sources
     input  wire        irq_timer,
-    input  wire        irq_external
+    input  wire        irq_external,
+    output reg         irq_timer_ack,
+    output reg         irq_external_ack
 );
 
     // ------------------------------------------------------------
@@ -214,6 +216,7 @@ module qar_core #(
     reg [31:0] csr_mip;
     reg [31:0] csr_mtimecmp;
     reg [31:0] csr_mtime;
+    reg        csr_irq_priority;
 
     localparam CSR_ADDR_MSTATUS  = 12'h300;
     localparam CSR_ADDR_MIE      = 12'h304;
@@ -223,6 +226,8 @@ module qar_core #(
     localparam CSR_ADDR_MIP      = 12'h344;
     localparam CSR_ADDR_MTIME    = 12'h701;
     localparam CSR_ADDR_MTIMECMP = 12'h720;
+    localparam CSR_ADDR_IRQ_PRIORITY = 12'hBC0;
+    localparam CSR_ADDR_IRQ_ACK      = 12'hBC1;
 
     localparam MCAUSE_ECALL = 32'd11;
     localparam MCAUSE_ILLEGAL = 32'd2;
@@ -322,6 +327,8 @@ module qar_core #(
             CSR_ADDR_MIP:      csr_read_data = csr_mip;
             CSR_ADDR_MTIME:    csr_read_data = csr_mtime;
             CSR_ADDR_MTIMECMP: csr_read_data = csr_mtimecmp;
+            CSR_ADDR_IRQ_PRIORITY: csr_read_data = {31'b0, csr_irq_priority};
+            CSR_ADDR_IRQ_ACK:      csr_read_data = 32'b0;
             default:           csr_read_data = 32'b0;
         endcase
     end
@@ -570,15 +577,19 @@ module qar_core #(
     // ------------------------------------------------------------
     // Interrupt detection
     // ------------------------------------------------------------
-    wire timer_pending   = ((csr_mtime >= csr_mtimecmp) || irq_timer);
-    wire external_pending= irq_external;
-
+    wire timer_trigger_level = ((csr_mtime >= csr_mtimecmp) || irq_timer);
+    wire timer_pending   = csr_mip[7];
+    wire external_pending= csr_mip[11];
+    
     wire global_mie = csr_mstatus[3];
     wire timer_enabled = csr_mie[7];
     wire ext_enabled   = csr_mie[11];
 
-    wire take_timer_irq = global_mie && timer_enabled && timer_pending;
-    wire take_ext_irq   = global_mie && ext_enabled && external_pending;
+    wire timer_can_fire = global_mie && timer_enabled && timer_pending;
+    wire ext_can_fire   = global_mie && ext_enabled && external_pending;
+
+    wire take_timer_irq = timer_can_fire && (!ext_can_fire || !csr_irq_priority);
+    wire take_ext_irq   = ext_can_fire && (!timer_can_fire || csr_irq_priority);
 
     // ------------------------------------------------------------
     // Pipeline + state update
@@ -626,10 +637,20 @@ module qar_core #(
             csr_mip           <= 32'b0;
             csr_mtime         <= 32'b0;
             csr_mtimecmp      <= 32'd200;
+            csr_irq_priority  <= 1'b0;
+            irq_timer_ack     <= 1'b0;
+            irq_external_ack  <= 1'b0;
         end else begin
+            irq_timer_ack    <= 1'b0;
+            irq_external_ack <= 1'b0;
             csr_mtime <= csr_mtime + 32'd1;
-            csr_mip[7]  <= timer_pending;
-            csr_mip[11] <= external_pending;
+            if (csr_write_en && csr_write_addr == CSR_ADDR_MIP) begin
+                csr_mip <= csr_write_data;
+            end else begin
+                csr_mip[7] <= timer_trigger_level;
+                if (irq_external)
+                    csr_mip[11] <= 1'b1;
+            end
 
             // Fetch management
             if (trap_request || flush_pipe) begin
@@ -708,9 +729,17 @@ module qar_core #(
                     CSR_ADDR_MEPC:     csr_mepc    <= csr_write_data;
                     CSR_ADDR_MCAUSE:   csr_mcause  <= csr_write_data;
                     CSR_ADDR_MIE:      csr_mie     <= csr_write_data;
-                    CSR_ADDR_MIP:      csr_mip     <= csr_write_data;
                     CSR_ADDR_MTIME:    csr_mtime   <= csr_write_data;
                     CSR_ADDR_MTIMECMP: csr_mtimecmp<= csr_write_data;
+                    CSR_ADDR_IRQ_PRIORITY: csr_irq_priority <= csr_write_data[0];
+                    CSR_ADDR_IRQ_ACK: begin
+                        if (csr_write_data[0])
+                            irq_timer_ack <= 1'b1;
+                        if (csr_write_data[1]) begin
+                            irq_external_ack <= 1'b1;
+                            csr_mip[11] <= 1'b0;
+                        end
+                    end
                     default: ;
                 endcase
             end

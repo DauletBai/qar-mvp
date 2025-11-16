@@ -848,6 +848,8 @@ var csrNameMap = map[string]int{
 	"MIP":      0x344,
 	"MTIME":    0x701,
 	"MTIMECMP": 0x720,
+	"IRQPRIO":  0xBC0,
+	"IRQACK":   0xBC1,
 }
 
 var registerMap = map[string]int{

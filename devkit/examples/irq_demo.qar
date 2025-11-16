@@ -19,8 +19,12 @@
     CSRRW x0, mie, x4
 
     # Enable global MIE
-    ADDI x6, x0, 0x8
+    ADDI x6, x0, MSTATUS_MIE_MASK
     CSRRS x0, mstatus, x6
+
+    # Prefer external interrupts when both are pending
+    ADDI x7, x0, IRQ_PRIORITY_EXT_FIRST
+    CSRRW x0, irqprio, x7
 
     ADDI x10, x0, 0       # timer interrupt counter
     ADDI x11, x0, 0       # external interrupt counter
@@ -40,6 +44,9 @@ trap_entry:
 handle_timer:
     ADDI x10, x10, 1
     SW   x10, TIMER_RESULT_ADDR(x0)
+    ADDI x15, x0, 1
+    SW   x15, NEST_LOG0_ADDR(x0)
+    ADDI x18, x0, 1
     ADDI x13, x0, IRQ_TARGET_TIMERS
     BLT  x10, x13, timer_rearm
     JAL  x0, timer_disable
@@ -47,15 +54,36 @@ timer_rearm:
     CSRRS x7, mtimecmp, x0
     ADDI x7, x7, TIMER_INTERVAL
     CSRRW x0, mtimecmp, x7
-    MRET
+    JAL  x0, timer_finalize
 timer_disable:
+    ADDI x18, x0, 0
     ADDI x14, x0, 0x80
     CSRRC x0, mie, x14
+    JAL  x0, timer_finalize
+timer_finalize:
+    ADDI x16, x0, MSTATUS_MIE_MASK
+    ADDI x19, x0, 0x80
+    CSRRC x0, mie, x19
+    CSRRS x0, mstatus, x16
+    ADDI x0, x0, 0
+    ADDI x0, x0, 0
+    CSRRC x0, mstatus, x16
+    BEQ  x18, x0, skip_timer_reenable
+    CSRRS x0, mie, x19
+skip_timer_reenable:
+    ADDI x14, x0, IRQ_ACK_TIMER
+    CSRRW x0, irqack, x14
+    ADDI x15, x0, 3
+    SW   x15, NEST_LOG2_ADDR(x0)
     MRET
 
 handle_ext:
     ADDI x11, x11, 1
     SW   x11, EXT_RESULT_ADDR(x0)
+    ADDI x15, x0, 2
+    SW   x15, NEST_LOG1_ADDR(x0)
+    ADDI x14, x0, IRQ_ACK_EXT
+    CSRRW x0, irqack, x14
     MRET
 
 handle_ecall:

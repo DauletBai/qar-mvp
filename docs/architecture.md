@@ -115,6 +115,7 @@ These instructions form the public contract advertised by DevKit programs and au
 - **Three-stage pipeline:** the core now runs IF→ID→EX with a forwarding network for single-cycle RAW hazards plus an interlock that detects load-use cases. Fetch owns a two-entry prefetch queue, so IMEM keeps issuing while EX waits for data and the pipeline stays fed.
 - **Bus interfaces:** IMEM and DMEM keep the `valid/ready` streaming handshake but now expose explicit `IMEM_DATA_WIDTH` / `DMEM_DATA_WIDTH` parameters (default 32-bit) in preparation for wider FPGA fabrics and multi-beat transfers.
 - **Interrupt and CSR subsystem:** timer and external interrupts feed through `mie/mip`, `mtime/mtimecmp`, and `mstatus` (MIE/MPIE). ECALL, timer IRQ, external IRQ, and MRET now all share the same trap entry code path.
+- **Configurable priority + ACKs:** custom `irqprio` and `irqack` CSRs let firmware decide which source preempts and emit explicit timer/external end-of-interrupt strobes (which also clear the latched `mip` bits), making nested IRQ demos straightforward.
 - **Assembler + DevKit:** `qarsim` emits `LUI`, `AUIPC`, `CSRR*`, `ECALL`, and `MRET`, plus `%hi/%lo` label helpers. The new `irq_demo` example programs the timer, handles an external interrupt, and exercises ECALL/MRET with automated verification in `qar_core_exec_tb`.
 - **Verification:** the execution bench checks timer/external counters and memory markers, while randomized load/store tests continue to stress the memory handshake via the sum-positive program. Interrupt regression is now part of the default `run_core_exec.sh` flow.
 
@@ -125,7 +126,7 @@ These instructions form the public contract advertised by DevKit programs and au
 
 ### Remaining gaps
 - Instruction fetch still operates on 32-bit beats with a two-entry prefetch queue; there are no caches or burst transfers yet, so only one outstanding transaction exists on each bus.
-- Interrupts are single-priority (timer wins over external) with no nested handling beyond `mstatus.MPIE`.
+- Interrupt control still covers only timer/external sources; there is no multi-level prioritizer or hardware nesting beyond the `mstatus.MPIE` convention.
 - Formal coverage remains centered on the register file; ALU/decoder proofs and interrupt-focused assertions are future work.
 
 ---
@@ -135,7 +136,7 @@ These instructions form the public contract advertised by DevKit programs and au
 The next iteration targets synthesis-grade behavior and deeper verification:
 
 1. **Memory system evolution:** grow the new instruction prefetch queue into a cache/prefetch stub and add multi-beat data transactions so the streaming buses look more like FPGA/SoC fabrics.
-2. **Interrupt robustness:** prioritize and potentially nest interrupts, add software acknowledgments for external sources, and exercise timer/external IRQ mixes in both DevKit programs and testbenches.
+2. **Interrupt robustness:** grow beyond the two-source controller by adding vectored priorities, richer acknowledgement/claim semantics, and broader DevKit coverage (multiple external sources, IRQ storm scenarios).
 3. **Verification expansion:** push SymbiYosys coverage down into the ALU/decoder, add CSR/interrupt assertions, and wire deterministic + random + formal runs into CI.
 4. **Tooling/packaging:** grow DevKit with additional examples (e.g., IRQ-driven memcpy), package the Go CLI as a binary release, and document contribution/onboarding steps.
 

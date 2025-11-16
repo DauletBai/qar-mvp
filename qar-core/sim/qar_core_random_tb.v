@@ -21,6 +21,8 @@ module qar_core_random_tb();
     wire [31:0] mem_wdata;
     reg         mem_ready;
     reg  [31:0] mem_rdata;
+    wire        irq_timer_ack;
+    wire        irq_external_ack;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -41,7 +43,9 @@ module qar_core_random_tb();
         .mem_ready(mem_ready),
         .mem_rdata(mem_rdata),
         .irq_timer(1'b0),
-        .irq_external(1'b0)
+        .irq_external(1'b0),
+        .irq_timer_ack(irq_timer_ack),
+        .irq_external_ack(irq_external_ack)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];
