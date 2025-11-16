@@ -1,34 +1,89 @@
-cat << 'EOF' > README.md
-# QAR-MVP — минимальный прототип архитектуры QAR
+# QAR-MVP — Minimal Prototype of the QAR Architecture
 
-## Цель
+QAR-MVP is the first working prototype of the **QAR (Qazaq Architecture of RISC)** initiative.  
+This project demonstrates that Kazakhstan can design and implement its own processor architecture, instruction set subset, and development toolkit using only:
 
-Создать минимально жизнеспособный прототип (MVP) национальной архитектуры процессора QAR:
+- 1 MacBook Air M2 (8 GB RAM)
+- 2 engineers (human + AI collaboration)
+- open-source tools (Verilog, Icarus, Go)
 
-- простейшее ядро процессора QAR-Core v0.1 (совместимое с базовым RISC-V),
-- минимальная операционная система QAR-OS v0.1,
-- DevKit (набор инструментов) для запуска и отладки программ в симуляции.
+The current MVP implements:
+- a functional 32-bit register file  
+- a functional ALU (ADD, SUB, AND, OR, XOR, SLL, SRL)  
+- a minimal RV32I-compatible core capable of executing real instructions  
+- an external `program.hex` loader  
+- full simulation environment and testbenches  
 
-Проект реализуется силами небольшой команды (2 человека) на MacBook Air M2 (8 ГБ / 256 ГБ)
-с использованием открытых инструментов.
+This is the **first step** toward a sovereign processor ecosystem in Kazakhstan.
 
-## Структура проекта
+---
 
-- `qar-core/` — ядро процессора QAR-Core (RTL, симуляции, тесты)
-- `qar-os/` — минимальная ОС QAR-OS (boot, kernel, lib)
-- `devkit/` — инструменты разработчика (CLI и веб-интерфейс)
-- `docs/` — архитектура, спецификации, дорожная карта
-- `scripts/` — служебные скрипты
+## Project Structure
 
-## Ближайшая цель (30 дней)
+```text
+qar-mvp/
+  docs/               # Documentation (architecture, specifications, reports)
+  qar-core/
+    rtl/              # Verilog RTL modules (regfile, alu, core)
+    sim/              # Testbenches and simulation files
+    test/             # Program-level tests (future)
+  qar-os/
+    boot/             # Bootloader (planned)
+    kernel/           # Minimal OS kernel (planned)
+    lib/              # Runtime libraries (planned)
+  devkit/
+    cli/              # CLI tools (assembler, runner) — planned
+    web/              # Web UI — planned
+  scripts/            # Simulation scripts, build helpers
+  program.hex         # Current program executed by the core
 
-1. Реализовать QAR-Core v0.1 в виде симулируемого RTL ядра (Verilog).
-2. Реализовать QAR-OS v0.1 (загрузка программы и вывод строки в "UART"/консоль).
-3. Реализовать DevKit:
-   - CLI: запуск симуляции `qarsim program.qar`
-   - минимальный веб-интерфейс для демонстрации.
+## Current Core Capabilities (QAR-Core v0.1)
 
-## Лицензия
+## Supported Instructions (RV32I subset)
+	•	ADDI (immediate add)
+	•	ADD  (register add)
 
-Планируемая лицензия: MIT или Apache-2.0 (может быть изменена по итогам обсуждения).
-EOF
+## Internal Components
+	•	32x 32-bit register file (x0 hardwired to zero)
+	•	Combinational ALU
+	•	Single-cycle execution flow
+	•	Program counter (PC)
+	•	Instruction memory (imem[], initialized from file)
+
+## Simulation Output Example
+QAR-Core: loading program from program.hex ...
+=== QAR-Core v0.1 EXECUTION TEST ===
+Register x3 = 8 (expected 8)
+Execution test completed.
+
+## Tools Required
+
+Install Verilog simulator:
+brew install icarus-verilog
+
+## How to Run Simulations
+
+ALU Test
+./scripts/run_alu.sh
+
+## Register File Test
+./scripts/run_regfile.sh
+
+## Full Core Execution Test
+./scripts/run_core_exec.sh
+
+# Documentation
+	•	Architecture specification￼
+	•	MVP progress report￼
+
+⸻
+
+# Vision
+
+The long-term goal is to establish a sovereign processor, OS, compiler, and hardware ecosystem for the Republic of Kazakhstan, based on QAR — an open and extensible architecture inspired by RISC-V.
+
+⸻
+
+# License
+
+This project is currently released under the MIT License.
