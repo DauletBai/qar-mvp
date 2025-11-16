@@ -1,0 +1,7 @@
+#!/bin/bash
+
+iverilog -o qar_core_tb.out \
+    qar-core/rtl/qar_core.v \
+    qar-core/sim/qar_core_tb.v
+
+vvp qar_core_tb.out
