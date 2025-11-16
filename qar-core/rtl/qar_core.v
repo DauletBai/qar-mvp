@@ -2,7 +2,7 @@
 // QAR-Core v0.1 - Minimal Core
 // - RV32I subset: ADDI, ADD
 // - Single-cycle style execution
-// - Simple instruction memory (imem)
+// - Instruction memory initialized from program.hex
 // =============================================
 
 module qar_core (
@@ -60,27 +60,14 @@ module qar_core (
     localparam OPCODE_OP_IMM = 7'b0010011; // ADDI
     localparam OPCODE_OP     = 7'b0110011; // ADD
 
-    // Instruction memory initialization
-    // Program:
-    //   ADDI x1, x0, 5
-    //   ADDI x2, x0, 3
-    //   ADD  x3, x1, x2
+    // Instruction memory initialization from external file
+    // File: program.hex in project root (one 32-bit word per line, hex)
     initial begin
-        // These encodings are standard RV32I:
-        // ADDI x1,x0,5  = 0x00500093
-        // ADDI x2,x0,3  = 0x00300113
-        // ADD  x3,x1,x2 = 0x002081b3
-        imem[0] = 32'h00500093;
-        imem[1] = 32'h00300113;
-        imem[2] = 32'h002081b3;
-        imem[3] = 32'h00000013; // NOP (ADDI x0, x0, 0)
-        imem[4] = 32'h00000013;
-        imem[5] = 32'h00000013;
-        imem[6] = 32'h00000013;
-        imem[7] = 32'h00000013;
+        $display("QAR-Core: loading program from program.hex ...");
+        $readmemh("program.hex", imem);
     end
 
-    // Register file instance (named for debug in testbench)
+    // Register file instance
     regfile rf_inst (
         .clk   (clk),
         .we    (rf_we),
@@ -100,7 +87,7 @@ module qar_core (
         .result(alu_result)
     );
 
-    // For now, external memory interface is unused
+    // For now, external data memory interface is unused
     assign mem_addr  = 32'b0;
     assign mem_wdata = 32'b0;
     assign mem_we    = 1'b0;
