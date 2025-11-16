@@ -54,6 +54,7 @@ qar-mvp/
 
 ### Execution Model
 - Three-stage pipeline (IF → ID → EX) that streams both instruction and data memory transactions over `valid/ready` interfaces, includes single-cycle forwarding, and interlocks on load-use hazards.
+- The fetch path owns a two-entry prefetch queue so IMEM keeps issuing while downstream stages drain; IMEM/DMEM bus widths are parameterized via `IMEM_DATA_WIDTH` / `DMEM_DATA_WIDTH` (default 32-bit) for future multi-beat transfers.
 - Register file exposes two read ports/one write port (x0 hardwired to zero); `default_nettype none` guards plus SymbiYosys harnesses (BMC) cover the regfile.
 - CSR/timer subsystem (`mstatus`, `mie`, `mip`, `mtvec`, `mepc`, `mcause`, `mtime`, `mtimecmp`) enables ECALL + timer + external IRQ flows with `MRET` round-trips.
 

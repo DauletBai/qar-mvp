@@ -10,7 +10,9 @@ module qar_core #(
     parameter IMEM_DEPTH        = 64,
     parameter DMEM_DEPTH        = 256,
     parameter USE_INTERNAL_IMEM = 0,
-    parameter USE_INTERNAL_DMEM = 0
+    parameter USE_INTERNAL_DMEM = 0,
+    parameter IMEM_DATA_WIDTH   = 32,
+    parameter DMEM_DATA_WIDTH   = 32
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -19,15 +21,15 @@ module qar_core #(
     output wire        imem_valid,
     output wire [31:0] imem_addr,
     input  wire        imem_ready,
-    input  wire [31:0] imem_rdata,
+    input  wire [IMEM_DATA_WIDTH-1:0] imem_rdata,
 
     // Data memory interface
     output wire        mem_valid,
     output wire        mem_we,
     output wire [31:0] mem_addr,
-    output wire [31:0] mem_wdata,
+    output wire [DMEM_DATA_WIDTH-1:0] mem_wdata,
     input  wire        mem_ready,
-    input  wire [31:0] mem_rdata,
+    input  wire [DMEM_DATA_WIDTH-1:0] mem_rdata,
 
     // External interrupt sources
     input  wire        irq_timer,
@@ -53,6 +55,17 @@ module qar_core #(
     localparam DMEM_ADDR_WIDTH = clog2(DMEM_DEPTH);
     localparam DMEM_ADDR_MSB   = DMEM_ADDR_WIDTH + 1;
 
+    initial begin
+        if (IMEM_DATA_WIDTH != 32) begin
+            $fatal("IMEM_DATA_WIDTH values other than 32 are not supported in this prototype");
+        end
+        if (DMEM_DATA_WIDTH != 32) begin
+            $fatal("DMEM_DATA_WIDTH values other than 32 are not supported in this prototype");
+        end
+    end
+
+    localparam PREFETCH_DEPTH = 2;
+
     // ------------------------------------------------------------
     // Fetch / Decode / Execute pipeline state
     // ------------------------------------------------------------
@@ -63,6 +76,9 @@ module qar_core #(
     reg        if_valid;
     reg [31:0] if_instr;
     reg [31:0] if_pc;
+    reg        prefetch_slot_valid;
+    reg [31:0] prefetch_slot_instr;
+    reg [31:0] prefetch_slot_pc;
 
     reg        id_valid;
     reg [31:0] id_instr;
@@ -75,7 +91,8 @@ module qar_core #(
     reg [31:0] ex_rs2_val;
 
     wire       imem_ready_in;
-    wire [31:0] imem_rdata_in;
+    wire [IMEM_DATA_WIDTH-1:0] imem_rdata_in;
+    wire [31:0] imem_instr_word = imem_rdata_in[31:0];
 
     generate
         if (USE_INTERNAL_IMEM) begin : gen_internal_imem
@@ -104,14 +121,15 @@ module qar_core #(
     reg                  mem_req_valid;
     reg                  mem_req_we;
     reg  [31:0]          mem_req_addr;
-    reg  [31:0]          mem_req_wdata;
+    reg  [DMEM_DATA_WIDTH-1:0] mem_req_wdata;
 
     reg                  dmem_pending;
     reg                  dmem_is_load;
     reg  [4:0]           dmem_rd;
 
     wire                 mem_ready_in;
-    wire [31:0]          mem_rdata_in;
+    wire [DMEM_DATA_WIDTH-1:0] mem_rdata_in;
+    wire [31:0]          mem_rdata_word = mem_rdata_in[31:0];
 
     generate
         if (USE_INTERNAL_DMEM) begin : gen_internal_dmem
@@ -509,8 +527,8 @@ module qar_core #(
 
         if (load_commit) begin
             rf_we    = 1'b1;
-            rf_waddr = load_commit_rd;
-            rf_wdata = mem_rdata_in;
+        rf_waddr = load_commit_rd;
+        rf_wdata = mem_rdata_word;
         end
 
         if (illegal_instr && ex_active) begin
@@ -567,6 +585,12 @@ module qar_core #(
     // ------------------------------------------------------------
     wire ex_can_accept = !ex_valid || !stall_ex;
     wire id_stall = load_use_hazard || (!ex_can_accept && id_valid);
+    wire id_accept = if_valid && !id_valid && !id_stall;
+    wire [1:0] if_buf_count = if_valid ? 2'd1 : 2'd0;
+    wire [1:0] slot_buf_count = prefetch_slot_valid ? 2'd1 : 2'd0;
+    wire [1:0] fetch_buffer_occupancy = if_buf_count + slot_buf_count;
+    wire slot_to_if = prefetch_slot_valid && (!if_valid || id_accept);
+    wire if_fetch_target = (!if_valid || id_accept) && !slot_to_if;
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -576,6 +600,9 @@ module qar_core #(
             if_valid          <= 1'b0;
             if_instr          <= 32'b0;
             if_pc             <= 32'b0;
+            prefetch_slot_valid <= 1'b0;
+            prefetch_slot_instr <= 32'b0;
+            prefetch_slot_pc  <= 32'b0;
             id_valid          <= 1'b0;
             id_instr          <= 32'b0;
             id_pc             <= 32'b0;
@@ -590,7 +617,7 @@ module qar_core #(
             mem_req_valid     <= 1'b0;
             mem_req_we        <= 1'b0;
             mem_req_addr      <= 32'b0;
-            mem_req_wdata     <= 32'b0;
+            mem_req_wdata     <= {DMEM_DATA_WIDTH{1'b0}};
             csr_mstatus       <= 32'b0;
             csr_mtvec         <= 32'h00000100;
             csr_mepc          <= 32'b0;
@@ -606,30 +633,44 @@ module qar_core #(
 
             // Fetch management
             if (trap_request || flush_pipe) begin
-                pc_fetch          <= trap_request ? trap_target : branch_target;
-                fetch_req_pending <= 1'b0;
-                if_valid          <= 1'b0;
-                id_valid          <= 1'b0;
-                ex_valid          <= 1'b0;
+                pc_fetch            <= trap_request ? trap_target : branch_target;
+                fetch_req_pending   <= 1'b0;
+                if_valid            <= 1'b0;
+                prefetch_slot_valid <= 1'b0;
+                id_valid            <= 1'b0;
+                ex_valid            <= 1'b0;
             end else begin
-                if (!fetch_req_pending && !if_valid) begin
+                if (!fetch_req_pending && (fetch_buffer_occupancy < PREFETCH_DEPTH)) begin
                     fetch_req_pending <= 1'b1;
                     fetch_req_addr    <= pc_fetch;
+                    pc_fetch          <= pc_fetch + 32'd4;
                 end
 
-                if (fetch_req_pending && imem_ready_in) begin
-                    fetch_req_pending <= 1'b0;
-                    if_valid          <= 1'b1;
-                    if_instr          <= imem_rdata_in;
-                    if_pc             <= fetch_req_addr;
-                    pc_fetch          <= fetch_req_addr + 32'd4;
-                end
-
-                if (if_valid && !id_valid && !id_stall) begin
+                if (id_accept) begin
                     id_valid <= 1'b1;
                     id_instr <= if_instr;
                     id_pc    <= if_pc;
                     if_valid <= 1'b0;
+                end
+
+                if (slot_to_if) begin
+                    if_valid            <= 1'b1;
+                    if_instr            <= prefetch_slot_instr;
+                    if_pc               <= prefetch_slot_pc;
+                    prefetch_slot_valid <= 1'b0;
+                end
+
+                if (fetch_req_pending && imem_ready_in) begin
+                    fetch_req_pending <= 1'b0;
+                    if (if_fetch_target) begin
+                        if_valid <= 1'b1;
+                        if_instr <= imem_instr_word;
+                        if_pc    <= fetch_req_addr;
+                    end else begin
+                        prefetch_slot_valid <= 1'b1;
+                        prefetch_slot_instr <= imem_instr_word;
+                        prefetch_slot_pc    <= fetch_req_addr;
+                    end
                 end
 
                 if (id_valid && !id_stall && ex_can_accept) begin
