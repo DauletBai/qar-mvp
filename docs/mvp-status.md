@@ -16,6 +16,8 @@ The project began with the goal of creating a functional RV32I-style prototype C
 - **QAR-Core v0.2 — DONE.** RV32I subset expanded (SUB/logic/shifts/LW/SW/BEQ), data RAM introduced, and the sum-array reference program verified via assertions.
 - **QAR-Core v0.3 — DONE.** Control flow widened (BNE/BLT/JAL/JALR), the Go-based DevKit CLI/assembler (`qarsim`) now generates `program.hex`/`data.hex`, and verification includes randomized regressions plus a SymbiYosys harness.
 - **QAR-Core v0.4 — DONE.** Data memory now streams through a valid/ready interface, BGE/BGEU landed, minimal CSR/trap support (`CSRRW`, `ECALL`) is live, `qarsim` gained `.include`/`.equ` support with new example programs, and the SymbiYosys flow (BMC depth 8) + randomized wait-state regression are part of the documented workflow.
+- **QAR-Core v0.5 — DONE.** Two-stage IF/EX pipeline with streaming instruction + data buses, CSRRS/CSRRC/MRET traps, DevKit-powered program generation, and regression coverage (deterministic + randomized + SymbiYosys) define the new baseline.
+- **QAR-Core v0.6 — DONE.** Three-stage IF/ID/EX pipeline with forwarding + load-use interlocks, a programmable timer + external interrupt path (`mie/mip/mtime/mtimecmp`), extended assembler support (`LUI/AUIPC/CSRR*/ECALL/MRET` with `%hi/%lo`), and a new `irq_demo` DevKit example/testbench that exercises ECALL/IRQ/MRET.
 
 ---
 
@@ -42,36 +44,37 @@ The project began with the goal of creating a functional RV32I-style prototype C
 ### ✔ Testbench: Full Core Execution
 - verifies that x3 = x1 + x2 = 8 (v0.1)
 - verifies that x10 = filtered sum = 14 and `dmem[16] = 14`, `dmem[17] = 0x123` (v0.3)
+- verifies that timer/external interrupt counters reach their targets, `dmem[18] = 2`, `dmem[19] = 1`, and `dmem[20] = 0x1EE` after ECALL/IRQ/MRET flows (v0.6)
 
 ### ✔ Micro-programs + DevKit
 - Reference array stored in `devkit/examples/sum_positive.*`, assembled via `qarsim`
 - LW/SW + full branch set (`BEQ/BNE/BLT/BGE/BGEU`) plus JAL/JALR exercised inside the same test thanks to the callable subroutine and shared macro file (`common.inc`)
+- `irq_demo` assembles timer/external interrupt demos (LUI/AUIPC/CSRR*/ECALL/MRET), re-programs `mtimecmp`, and validates CSR flows under the execution testbench
 - `default_nettype none`, deterministic assertions, randomized regression with handshake wait-states, and SymbiYosys (`formal/regfile/regfile.sby`, BMC depth 8)
 
 ---
 
 ## In Progress
 
-- Pipeline / hazard plan for single-cycle → two-stage migration
-- CSR/interrupt depth (CSRRS/CSRRC, MRET, IRQ entry/exit)
-- Instruction-memory handshake/caching strategy
-- QAR-OS v0.1 boot model (blocked on traps/interrupts/tooling polish)
+- Instruction- and data-bus evolution (prefetch buffer or cache stub plus multi-beat transfers)
+- Interrupt prioritization/nesting and richer CSR assertions
+- Verification/CI scale-up (additional SymbiYosys targets, regression bundling, GitHub Actions)
+- QAR-OS v0.1 boot experiment once timer/IRQ tooling matures
 
 ---
 
 ## Next Steps (Short-term)
 
-1. Outline/implement a simple two-stage pipeline (or FSM) so the memory interface no longer stalls fetch.
-2. Expand CSR support (CSRRS/CSRRC, MRET) and add a basic interrupt flow for QAR-OS experiments.
-3. Expose an instruction-memory handshake (or cache stub) to ease FPGA bring-up.
-4. Broaden verification (additional SymbiYosys targets, CI automation, lint).
-5. Document contribution process (ROADMAP.md, CONTRIBUTING.md) and codify the release cadence.
+1. Prototype an instruction prefetch buffer and document a multi-beat data handshake for DMEM.
+2. Flesh out interrupt prioritization/nesting plus software-visible acknowledgment strategy.
+3. Broaden verification: extend SymbiYosys to ALU/decoder, add CSR/interrupt assertions, and begin CI automation.
+4. Publish DevKit binaries (`qarsim`) and document contribution/release workflow (ROADMAP.md, CONTRIBUTING.md).
 
 ---
 
-## Next Target: QAR-Core v0.5
+## Next Target: QAR-Core v0.7
 
-1. **Pipeline & hazards** — Introduce a two-stage pipeline or structured microcode and define hazard/interlock policy.
-2. **CSR/interrupt depth** — Add CSRRS/CSRRC, MRET, and IRQ entry/exit so traps can round-trip.
-3. **Instruction-memory interface** — Provide a fetch handshake/cache stub compatible with FPGA memories.
-4. **Tooling & verification** — Extend `qarsim`, grow the example suite, and add additional SymbiYosys targets plus CI wiring.
+1. **Memory hierarchy** — Introduce an instruction fetch buffer/cache stub plus configurable data bus widths for FPGA bring-up.
+2. **Interrupt robustness** — Prioritized/nested interrupts, better external IRQ acknowledgment, and DevKit demos mixing timer/external sources.
+3. **Verification & CI** — Extend SymbiYosys coverage beyond the register file, add CSR/interrupt assertions, and integrate CI so deterministic + random + formal suites run per push.
+4. **Tooling & packaging** — Ship `qarsim` binaries, document ROADMAP/CONTRIBUTING, and grow the DevKit example suite.

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+go run ./devkit/cli build \
+    --asm devkit/examples/irq_demo.qar \
+    --data devkit/examples/irq_demo.data \
+    --imem 128 \
+    --dmem 256 \
+    --program program.hex \
+    --data-out data.hex
+
 iverilog -o qar_core_exec_tb.out \
     qar-core/rtl/regfile.v \
     qar-core/rtl/alu.v \

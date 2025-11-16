@@ -47,6 +47,7 @@ func newAsmParser() *asmParser {
 }
 
 var macroTable map[string]int32
+var labelTable map[string]uint32
 
 func (p *asmParser) loadFile(path string) ([]sourceLine, error) {
 	var lines []sourceLine
@@ -118,9 +119,17 @@ func (p *asmParser) evalMacroValue(token string) (int32, error) {
 	if val, ok := p.macros[strings.ToUpper(token)]; ok {
 		return val, nil
 	}
-	v, err := strconv.ParseInt(token, 0, 32)
+	v, err := strconv.ParseInt(token, 0, 64)
 	if err != nil {
 		return 0, err
+	}
+	const maxInt32 = 1<<31 - 1
+	const minInt32 = -1 << 31
+	if v > maxInt32 {
+		v = v - (1 << 32)
+	}
+	if v < minInt32 || v > maxInt32 {
+		return 0, fmt.Errorf("macro value %s out of range", token)
 	}
 	return int32(v), nil
 }
@@ -201,6 +210,7 @@ func doBuild(cfg *buildConfig) error {
 	if err != nil {
 		return err
 	}
+	labelTable = labels
 	if len(insts) > cfg.imemDepth {
 		return fmt.Errorf("program has %d instructions but imem depth is %d", len(insts), cfg.imemDepth)
 	}
@@ -311,6 +321,40 @@ func encodeInstruction(inst asmLine, labels map[string]uint32) (uint32, error) {
 		return word, nil
 	case "ADD", "SUB", "AND", "OR", "XOR", "SLL", "SRL":
 		return encodeRType(inst)
+	case "LUI":
+		if len(inst.args) != 2 {
+			return 0, fmt.Errorf("line %d: LUI expects rd, imm", inst.line)
+		}
+		rd, err := parseRegister(inst.args[0])
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		imm, err := parseImmediate(inst.args[1])
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		word, err := encodeUType(rd, imm, 0x37)
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		return word, nil
+	case "AUIPC":
+		if len(inst.args) != 2 {
+			return 0, fmt.Errorf("line %d: AUIPC expects rd, imm", inst.line)
+		}
+		rd, err := parseRegister(inst.args[0])
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		imm, err := parseImmediate(inst.args[1])
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		word, err := encodeUType(rd, imm, 0x17)
+		if err != nil {
+			return 0, fmt.Errorf("line %d: %w", inst.line, err)
+		}
+		return word, nil
 	case "LW":
 		rd, base, imm, err := parseLoadStoreArgs(inst)
 		if err != nil {
@@ -331,7 +375,7 @@ func encodeInstruction(inst asmLine, labels map[string]uint32) (uint32, error) {
 			return 0, fmt.Errorf("line %d: %w", inst.line, err)
 		}
 		return word, nil
-	case "BEQ", "BNE", "BLT":
+	case "BEQ", "BNE", "BLT", "BGE", "BLTU", "BGEU":
 		return encodeBranch(inst, labels)
 	case "JAL":
 		return encodeJType(inst, labels)
@@ -345,6 +389,31 @@ func encodeInstruction(inst asmLine, labels map[string]uint32) (uint32, error) {
 			return 0, fmt.Errorf("line %d: %w", inst.line, err)
 		}
 		return word, nil
+	case "CSRRW", "CSRRS", "CSRRC":
+		rd, csr, rs1, err := parseCSRArgs(inst)
+		if err != nil {
+			return 0, err
+		}
+		var funct3 uint32
+		switch inst.op {
+		case "CSRRW":
+			funct3 = 0b001
+		case "CSRRS":
+			funct3 = 0b010
+		case "CSRRC":
+			funct3 = 0b011
+		}
+		return encodeSystem(rd, rs1, csr, funct3)
+	case "ECALL":
+		if len(inst.args) != 0 {
+			return 0, fmt.Errorf("line %d: ECALL takes no operands", inst.line)
+		}
+		return 0x00000073, nil
+	case "MRET":
+		if len(inst.args) != 0 {
+			return 0, fmt.Errorf("line %d: MRET takes no operands", inst.line)
+		}
+		return 0x30200073, nil
 	default:
 		return 0, fmt.Errorf("line %d: unsupported opcode %s", inst.line, inst.op)
 	}
@@ -390,6 +459,13 @@ func encodeRType(inst asmLine) (uint32, error) {
 		(funct3 << 12) | (uint32(rd) << 7) | opcode, nil
 }
 
+func encodeUType(rd int, imm int32, opcode uint32) (uint32, error) {
+	if imm < 0 || imm >= (1<<20) {
+		return 0, fmt.Errorf("immediate %d out of range for U-type", imm)
+	}
+	return (uint32(imm) << 12) | (uint32(rd) << 7) | opcode, nil
+}
+
 func encodeBranch(inst asmLine, labels map[string]uint32) (uint32, error) {
 	if len(inst.args) != 3 {
 		return 0, fmt.Errorf("line %d: %s expects 3 operands", inst.line, inst.op)
@@ -414,6 +490,12 @@ func encodeBranch(inst asmLine, labels map[string]uint32) (uint32, error) {
 		funct3 = 0b001
 	case "BLT":
 		funct3 = 0b100
+	case "BGE":
+		funct3 = 0b101
+	case "BLTU":
+		funct3 = 0b110
+	case "BGEU":
+		funct3 = 0b111
 	}
 	word, err := encodeBType(rs1, rs2, offset, funct3)
 	if err != nil {
@@ -448,6 +530,14 @@ func encodeJType(inst asmLine, labels map[string]uint32) (uint32, error) {
 	bits19_12 := (imm >> 12) & 0xFF
 	return (bit20 << 31) | (bits19_12 << 12) | (bit11 << 20) | (bits10_1 << 21) |
 		(uint32(rd) << 7) | opcode, nil
+}
+
+func encodeSystem(rd, rs1 int, csr int32, funct3 uint32) (uint32, error) {
+	if csr < 0 || csr > 0xFFF {
+		return 0, fmt.Errorf("csr %d out of range", csr)
+	}
+	opcode := uint32(0x73)
+	return (uint32(csr) << 20) | (uint32(rs1) << 15) | (funct3 << 12) | (uint32(rd) << 7) | opcode, nil
 }
 
 func encodeI(rd, rs1 int, imm int32, funct3 uint32, opcode uint32) (uint32, error) {
@@ -504,6 +594,25 @@ func parseRRI(inst asmLine) (int, int, int32, error) {
 		return 0, 0, 0, fmt.Errorf("line %d: %w", inst.line, err)
 	}
 	return rd, rs1, imm, nil
+}
+
+func parseCSRArgs(inst asmLine) (int, int32, int, error) {
+	if len(inst.args) != 3 {
+		return 0, 0, 0, fmt.Errorf("line %d: %s expects rd, csr, rs1", inst.line, inst.op)
+	}
+	rd, err := parseRegister(inst.args[0])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("line %d: %w", inst.line, err)
+	}
+	csr, err := parseCSR(inst.args[1])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("line %d: %w", inst.line, err)
+	}
+	rs1, err := parseRegister(inst.args[2])
+	if err != nil {
+		return 0, 0, 0, fmt.Errorf("line %d: %w", inst.line, err)
+	}
+	return rd, csr, rs1, nil
 }
 
 func parseLoadStoreArgs(inst asmLine) (int, int, int32, error) {
@@ -603,11 +712,73 @@ func parseImmediate(token string) (int32, error) {
 	if val, ok := lookupMacro(token); ok {
 		return val, nil
 	}
-	val, err := strconv.ParseInt(token, 0, 32)
+	if val, ok, err := parseLabelImmediate(token); ok {
+		return val, err
+	}
+	val, err := strconv.ParseInt(token, 0, 64)
 	if err != nil {
 		return 0, fmt.Errorf("invalid immediate %s", token)
 	}
+	const maxInt32 = 1<<31 - 1
+	const minInt32 = -1 << 31
+	if val > maxInt32 {
+		val = val - (1 << 32)
+	}
+	if val < minInt32 || val > maxInt32 {
+		return 0, fmt.Errorf("immediate %s out of 32-bit range", token)
+	}
 	return int32(val), nil
+}
+
+func parseCSR(token string) (int32, error) {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return 0, errors.New("empty CSR name")
+	}
+	upper := strings.ToUpper(token)
+	if val, ok := lookupMacro(token); ok {
+		return val, nil
+	}
+	if addr, ok := csrNameMap[upper]; ok {
+		return int32(addr), nil
+	}
+	val, err := strconv.ParseInt(token, 0, 32)
+	if err != nil {
+		return 0, fmt.Errorf("unknown CSR %s", token)
+	}
+	if val < 0 || val > 0xFFF {
+		return 0, fmt.Errorf("csr value %d out of range", val)
+	}
+	return int32(val), nil
+}
+
+func parseLabelImmediate(token string) (int32, bool, error) {
+	if labelTable == nil {
+		return 0, false, nil
+	}
+	token = strings.TrimSpace(token)
+	if strings.HasPrefix(token, "%hi(") && strings.HasSuffix(token, ")") {
+		name := strings.TrimSpace(token[4 : len(token)-1])
+		addr, ok := labelTable[name]
+		if !ok {
+			return 0, true, fmt.Errorf("unknown label %s", name)
+		}
+		value := int32((addr + 0x800) >> 12)
+		return value, true, nil
+	}
+	if strings.HasPrefix(token, "%lo(") && strings.HasSuffix(token, ")") {
+		name := strings.TrimSpace(token[4 : len(token)-1])
+		addr, ok := labelTable[name]
+		if !ok {
+			return 0, true, fmt.Errorf("unknown label %s", name)
+		}
+		lo := int32(addr & 0xFFF)
+		if lo >= 0x800 {
+			lo -= 0x1000
+		}
+		return lo, true, nil
+	}
+	return 0, false, nil
 }
 
 func lookupMacro(token string) (int32, bool) {
@@ -665,6 +836,18 @@ func writeHexFile(path string, words []uint32) error {
 		}
 	}
 	return writer.Flush()
+}
+
+var csrNameMap = map[string]int{
+	"MSTATUS":  0x300,
+	"MIE":      0x304,
+	"MTVEC":    0x305,
+	"MSCRATCH": 0x340,
+	"MEPC":     0x341,
+	"MCAUSE":   0x342,
+	"MIP":      0x344,
+	"MTIME":    0x701,
+	"MTIMECMP": 0x720,
 }
 
 var registerMap = map[string]int{

@@ -1,5 +1,13 @@
 #!/bin/bash
 
+go run ./devkit/cli build \
+    --asm devkit/examples/sum_positive.qar \
+    --data devkit/examples/sum_positive.data \
+    --imem 128 \
+    --dmem 256 \
+    --program program.hex \
+    --data-out data.hex
+
 iverilog -o qar_core_random_tb.out \
     qar-core/rtl/regfile.v \
     qar-core/rtl/alu.v \
