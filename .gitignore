@@ -1,0 +1,15 @@
+cat << 'EOF' > .gitignore
+# macOS
+.DS_Store
+
+# Build artifacts
+build/
+out/
+*.o
+*.log
+*.vcd
+
+# Editor
+.vscode/
+.idea/
+EOF
