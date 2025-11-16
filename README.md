@@ -20,7 +20,6 @@ This is the **first step** toward a sovereign processor ecosystem in Kazakhstan.
 
 ## Project Structure
 
-```text
 qar-mvp/
   docs/               # Documentation (architecture, specifications, reports)
   qar-core/
@@ -36,6 +35,8 @@ qar-mvp/
     web/              # Web UI — planned
   scripts/            # Simulation scripts, build helpers
   program.hex         # Current program executed by the core
+
+---
 
 ## Current Core Capabilities (QAR-Core v0.1)
 
