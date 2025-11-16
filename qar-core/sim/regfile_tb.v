@@ -38,6 +38,10 @@ module regfile_tb();
         we = 0; raddr1 = 5;
         #10;
         $display("Read x5 = %d (expected 123)", rdata1);
+        if (rdata1 !== 32'd123) begin
+            $display("ERROR: x5 readback mismatch");
+            $finish;
+        end
 
         // Check x0 is immutable
         we = 1; waddr = 0; wdata = 999;
@@ -46,6 +50,10 @@ module regfile_tb();
         raddr1 = 0;
         #10;
         $display("Read x0 = %d (expected 0)", rdata1);
+        if (rdata1 !== 32'd0) begin
+            $display("ERROR: x0 is not zero");
+            $finish;
+        end
 
         $display("Test completed.");
         $finish;

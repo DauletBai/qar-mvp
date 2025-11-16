@@ -24,7 +24,7 @@ module qar_core_exec_tb();
     always #5 clk = ~clk;
 
     initial begin
-        $display("=== QAR-Core v0.1 EXECUTION TEST ===");
+        $display("=== QAR-Core v0.2 EXECUTION TEST ===");
 
         mem_rdata = 32'b0;
 
@@ -33,12 +33,22 @@ module qar_core_exec_tb();
         #20;
         rst_n = 1;
 
-        // Let the core run for some cycles (enough for 3 instructions)
-        #200;
+        // Let the core run for enough cycles to process the micro-program
+        #400;
 
-        // Read x3 from register file via hierarchical reference
-        // NOTE: rf_inst is the instance name inside qar_core
-        $display("Register x3 = %0d (expected 8)", uut.rf_inst.regs[3]);
+        // Check sum result
+        $display("Register x10 = %0d (expected 10)", uut.rf_inst.regs[10]);
+        if (uut.rf_inst.regs[10] !== 32'd10) begin
+            $display("ERROR: x10 != 10");
+            $finish;
+        end
+
+        // Check stored result in data memory (address 16 -> word index 4)
+        $display("Data memory[4] = %0d (expected 10)", uut.dmem[4]);
+        if (uut.dmem[4] !== 32'd10) begin
+            $display("ERROR: data memory[4] != 10");
+            $finish;
+        end
 
         $display("Execution test completed.");
         $finish;

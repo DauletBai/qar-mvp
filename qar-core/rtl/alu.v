@@ -6,6 +6,7 @@
 //  - SLL (shift left logical)
 //  - SRL (shift right logical)
 // =============================================
+`default_nettype none
 
 module alu (
     input  wire [31:0] op_a,
@@ -37,3 +38,5 @@ module alu (
     end
 
 endmodule
+
+`default_nettype wire

@@ -5,6 +5,7 @@
 // - One write port
 // - x0 is always zero
 // =============================================
+`default_nettype none
 
 module regfile (
     input  wire        clk,
@@ -37,3 +38,5 @@ module regfile (
     end
 
 endmodule
+
+`default_nettype wire

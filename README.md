@@ -35,27 +35,34 @@ qar-mvp/
     web/              # Web UI — planned
   scripts/            # Simulation scripts, build helpers
   program.hex         # Current program executed by the core
+  data.hex            # Data memory image consumed by LW/SW
 
 ---
 
-## Current Core Capabilities (QAR-Core v0.1)
+## Current Core Capabilities (QAR-Core v0.2)
 
-## Supported Instructions (RV32I subset)
-	•	ADDI (immediate add)
-	•	ADD  (register add)
+### Supported Instructions (RV32I subset)
+- ADDI, ADD, SUB, AND, OR, XOR, SLL, SRL
+- LW, SW
+- BEQ (used for loop/termination control)
 
-## Internal Components
-	•	32x 32-bit register file (x0 hardwired to zero)
-	•	Combinational ALU
-	•	Single-cycle execution flow
-	•	Program counter (PC)
-	•	Instruction memory (imem[], initialized from file)
+### Micro-program + Data Memory
+- `program.hex` encodes a tiny RV32I routine that walks an integer array in `data.hex`, sums 4 values (1,2,3,4), and stores the result in register `x10`.
+- `data.hex` seeds a 256-word RAM; slot 4 (address 16) is reserved for the stored sum so we also exercise SW.
 
-## Simulation Output Example
+### Execution Model
+- Single-cycle control path, combinational ALU, and separate instruction/data memories (64-word IMEM, 256-word DMEM).
+- Register file exposes two read ports/one write port (x0 hardwired to zero) and `default_nettype none` guards have been enabled across RTL.
+
+### Simulation Output Example
+```
 QAR-Core: loading program from program.hex ...
-=== QAR-Core v0.1 EXECUTION TEST ===
-Register x3 = 8 (expected 8)
+QAR-Core: loading data memory from data.hex ...
+=== QAR-Core v0.2 EXECUTION TEST ===
+Register x10 = 10 (expected 10)
+Data memory[4] = 10 (expected 10)
 Execution test completed.
+```
 
 ## Tools Required
 
@@ -65,13 +72,19 @@ brew install icarus-verilog
 ## How to Run Simulations
 
 ALU Test
+```sh
 ./scripts/run_alu.sh
+```
 
 ## Register File Test
+```sh
 ./scripts/run_regfile.sh
+```
 
 ## Full Core Execution Test
+```sh
 ./scripts/run_core_exec.sh
+```
 
 # Documentation
 	•	Architecture specification￼
