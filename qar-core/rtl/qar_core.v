@@ -1,7 +1,7 @@
 // =============================================
 // QAR-Core v0.2 - Minimal Core
 // - RV32I subset: ADDI, ADD, SUB, logic ops, shifts
-// - Adds LW/SW data path, BEQ branching, data RAM
+// - Adds LW/SW data path, BEQ/BNE/BLT branching, JAL/JALR control flow, data RAM
 // - Instruction/data memories initialized from hex files
 // =============================================
 `default_nettype none
@@ -44,6 +44,10 @@ module qar_core (
     wire [31:0] imm_i   = {{20{instr[31]}}, instr[31:20]};
     wire [31:0] imm_s   = {{20{instr[31]}}, instr[31:25], instr[11:7]};
     wire [31:0] imm_b   = {{19{instr[31]}}, instr[31], instr[7], instr[30:25], instr[11:8], 1'b0};
+    wire [31:0] imm_j   = {{11{instr[31]}}, instr[31], instr[19:12], instr[20], instr[30:21], 1'b0};
+    wire [31:0] jalr_target_raw = rf_rdata1 + imm_i;
+    wire [31:0] jalr_target     = { jalr_target_raw[31:1], 1'b0 };
+    wire [31:0] pc_plus_4       = pc + 32'd4;
 
     // Register file interface
     reg         rf_we;
@@ -82,7 +86,9 @@ module qar_core (
     localparam OPCODE_OP     = 7'b0110011; // R-type
     localparam OPCODE_LOAD   = 7'b0000011; // LW
     localparam OPCODE_STORE  = 7'b0100011; // SW
-    localparam OPCODE_BRANCH = 7'b1100011; // BEQ
+    localparam OPCODE_BRANCH = 7'b1100011; // Branches
+    localparam OPCODE_JALR   = 7'b1100111; // JALR
+    localparam OPCODE_JAL    = 7'b1101111; // JAL
 
     assign data_rdata = dmem[data_addr];
     assign instr = imem[pc[IMEM_ADDR_MSB:2]];
@@ -244,9 +250,38 @@ module qar_core (
             end
 
             OPCODE_BRANCH: begin
+                case (funct3)
+                    3'b000: begin // BEQ
+                        if (rf_rdata1 == rf_rdata2)
+                            pc_next = pc + imm_b;
+                    end
+                    3'b001: begin // BNE
+                        if (rf_rdata1 != rf_rdata2)
+                            pc_next = pc + imm_b;
+                    end
+                    3'b100: begin // BLT
+                        if ($signed(rf_rdata1) < $signed(rf_rdata2))
+                            pc_next = pc + imm_b;
+                    end
+                    default: begin
+                        // unsupported branch -> no-op
+                    end
+                endcase
+            end
+
+            OPCODE_JAL: begin
+                rf_we    = 1'b1;
+                rf_waddr = rd;
+                rf_wdata = pc_plus_4;
+                pc_next  = pc + imm_j;
+            end
+
+            OPCODE_JALR: begin
                 if (funct3 == 3'b000) begin
-                    if (rf_rdata1 == rf_rdata2)
-                        pc_next = pc + imm_b;
+                    rf_we    = 1'b1;
+                    rf_waddr = rd;
+                    rf_wdata = pc_plus_4;
+                    pc_next  = jalr_target;
                 end
             end
 

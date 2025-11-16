@@ -19,7 +19,7 @@ module regfile (
 );
 
     // Register array
-    reg [31:0] regs [0:31];
+    (* keep *) reg [31:0] regs [0:31];
 
     integer i;
     initial begin

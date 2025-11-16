@@ -1,0 +1,17 @@
+[options]
+mode bmc
+depth 8
+expect pass
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal regfile.v regfile_formal.v
+prep -top regfile_formal -nordff
+clk2fflogic
+prep -top regfile_formal
+
+[files]
+qar-core/rtl/regfile.v
+formal/regfile/regfile_formal.v

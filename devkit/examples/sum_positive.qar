@@ -1,0 +1,26 @@
+# Sum only non-negative numbers in the array and demonstrate JAL/JALR control flow
+    ADDI x1, x0, 0        # base pointer (bytes)
+    ADDI x2, x0, 6        # length (elements)
+    ADDI x10, x0, 0       # accumulator for positives
+
+loop:
+    LW   x3, 0(x1)
+    ADDI x1, x1, 4
+    ADDI x2, x2, -1
+    BLT  x3, x0, skip_add
+    ADD  x10, x10, x3
+skip_add:
+    BNE  x2, x0, loop
+
+done:
+    JAL  x5, store_sum    # call subroutine
+    ADDI x12, x0, 0x123   # marker showing we returned
+    SW   x12, 68(x0)
+    JAL  x0, program_end
+
+store_sum:
+    SW   x10, 64(x0)
+    JALR x0, x5, 0
+
+program_end:
+    ADDI x0, x0, 0        # final NOP

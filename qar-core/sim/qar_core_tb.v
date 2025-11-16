@@ -24,7 +24,7 @@ module qar_core_tb();
     always #5 clk = ~clk;  // 100 MHz
 
     initial begin
-        $display("=== QAR-Core v0.2 simulation start ===");
+        $display("=== QAR-Core v0.3 simulation start ===");
 
         rst_n = 0;
         #50;

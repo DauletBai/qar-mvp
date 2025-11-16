@@ -14,6 +14,7 @@ The project began with the goal of creating a functional RV32I-style prototype C
 
 - **QAR-Core v0.1 — DONE.** Minimal RV32I execution path validated in simulation with automated testbenches.
 - **QAR-Core v0.2 — DONE.** RV32I subset expanded (SUB/logic/shifts/LW/SW/BEQ), data RAM introduced, and the sum-array reference program verified via assertions.
+- **QAR-Core v0.3 — DONE.** Control flow widened (BNE/BLT/JAL/JALR), the Go-based DevKit CLI/assembler (`qarsim`) now generates `program.hex`/`data.hex`, and verification includes randomized regressions plus a SymbiYosys harness.
 
 ---
 
@@ -39,37 +40,37 @@ The project began with the goal of creating a functional RV32I-style prototype C
 
 ### ✔ Testbench: Full Core Execution
 - verifies that x3 = x1 + x2 = 8 (v0.1)
-- verifies that x10 = sum(array) = 10 and `dmem[4] = 10` (v0.2)
+- verifies that x10 = filtered sum = 14 and `dmem[16] = 14`, `dmem[17] = 0x123` (v0.3)
 
-### ✔ QAR-Core v0.2 Micro-program
-- Reference array stored in `data.hex`, execution result stored in register + RAM
-- LW/SW/BEQ exercised inside the same test
-- `default_nettype none` + assertions added to RTL/testbenches
+### ✔ Micro-programs + DevKit
+- Reference array stored in `devkit/examples/sum_positive.*`, assembled via `qarsim`
+- LW/SW/BEQ/BNE/BLT + JAL/JALR exercised inside the same test thanks to the callable subroutine
+- `default_nettype none`, deterministic assertions, randomized regression bench, and `formal/regfile/regfile.sby`
 
 ---
 
 ## In Progress
 
-- DevKit CLI (`qarsim`) to orchestrate simulations
-- Go-based assembler / program-to-hex converter
-- Formal/read-coverage preparation and randomized regression benches
+- External memory interface definition + handshake for future SoC/FPGA bring-up
+- Expanded ISA work (BGE/BGEU, system instructions, CSR skeleton)
+- qarsim feature backlog (macros, include files, richer examples)
 - QAR-OS v0.1 boot model (blocked on richer ISA + tooling)
 
 ---
 
 ## Next Steps (Short-term)
 
-1. Extend ISA control flow (BNE/BLT/JAL/JALR) to unblock richer firmware.
-2. Build the Go-based DevKit CLI + minimal assembler so programs no longer require manual hex math.
-3. Add randomized/negative test cases plus regression scripts (SymbiYosys prep).
-4. Create example programs under `devkit/examples/` (array sum, mem copy, simple loop).
-5. Document contribution process (ROADMAP.md, CONTRIBUTING.md skeleton).
+1. Define and implement the external load/store handshake so DMEM can be swapped for FPGA-attached RAM.
+2. Extend ISA coverage (BGE/BGEU, JALR offsets, simple CSR/trap stubs) to support QAR-OS experiments.
+3. Grow qarsim: macro support, additional sample programs, and a friendlier UX for generating `program.hex`/`data.hex`.
+4. Broaden verification (additional SymbiYosys targets, negative/randomized programs, lint integration).
+5. Document contribution process (ROADMAP.md, CONTRIBUTING.md) and codify the release cadence.
 
 ---
 
-## Next Target: QAR-Core v0.3
+## Next Target: QAR-Core v0.4
 
-1. **Control flow richness** — Add BNE/BLT plus jump instructions so DevKit examples can branch/jump natively.
-2. **Toolchain** — Ship the initial `qarsim` CLI + assembler to automate `program.hex`/`data.hex` generation and simulation execution.
-3. **Memory interface** — Define a clean load/store handshake so the core can interface with external RAM or SoC fabrics (prep for FPGA bring-up).
-4. **Verification** — Layer randomized stimulus + SymbiYosys-ready modules to raise confidence before taping in more ISA features.
+1. **Memory interface** — Provide a simple AXI-lite-style or handshake-based external DMEM port so the core can drop into FPGA/SoC shells.
+2. **ISA & system hooks** — Add the remaining branch/jump variants plus skeletal CSR/trap handling needed by QAR-OS.
+3. **Pipeline prep** — Document hazards and experiment with a two-stage pipeline or structured microcode to unblock higher clock targets.
+4. **Tooling & verification** — Enhance `qarsim`, expand the example suite, and extend SymbiYosys coverage beyond the register file.

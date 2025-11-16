@@ -44,24 +44,44 @@ qar-mvp/
 ### Supported Instructions (RV32I subset)
 - ADDI, ADD, SUB, AND, OR, XOR, SLL, SRL
 - LW, SW
-- BEQ (used for loop/termination control)
+- BEQ, BNE, BLT
+- JAL, JALR
 
 ### Micro-program + Data Memory
-- `program.hex` encodes a tiny RV32I routine that walks an integer array in `data.hex`, sums 4 values (1,2,3,4), and stores the result in register `x10`.
-- `data.hex` seeds a 256-word RAM; slot 4 (address 16) is reserved for the stored sum so we also exercise SW.
+- `program.hex` encodes a tiny RV32I routine that walks an integer array in `data.hex`, filters out negative values, sums the rest into `x10`, then calls a subroutine via `JAL/JALR` to persist the result.
+- `data.hex` seeds a 256-word RAM with the array data; address 64 (word index 16) is used to persist the sum and address 68 (index 17) records that the return path completed.
 
 ### Execution Model
 - Single-cycle control path, combinational ALU, and separate instruction/data memories (64-word IMEM, 256-word DMEM).
-- Register file exposes two read ports/one write port (x0 hardwired to zero) and `default_nettype none` guards have been enabled across RTL.
+- Register file exposes two read ports/one write port (x0 hardwired to zero), `default_nettype none` guards have been enabled across RTL, and SymbiYosys harnesses cover basic invariants.
 
 ### Simulation Output Example
 ```
 QAR-Core: loading program from program.hex ...
 QAR-Core: loading data memory from data.hex ...
-=== QAR-Core v0.2 EXECUTION TEST ===
-Register x10 = 10 (expected 10)
-Data memory[4] = 10 (expected 10)
+=== QAR-Core v0.3 EXECUTION TEST ===
+Register x10 = 14 (expected 14)
+Data memory[16] = 14 (expected 14)
+Data memory[17] = 0x00000123 (expected 0x00000123)
 Execution test completed.
+```
+
+### DevKit CLI (qarsim)
+
+The Go-based `qarsim` tool assembles `.qar` programs, generates `program.hex` / `data.hex`, and can launch simulations:
+
+```sh
+# Build (assemble) the default example
+go run ./devkit/cli build \
+  --asm devkit/examples/sum_positive.qar \
+  --data devkit/examples/sum_positive.data \
+  --program program.hex \
+  --data-out data.hex
+
+# Assemble and immediately run the execution testbench
+go run ./devkit/cli run \
+  --asm devkit/examples/sum_positive.qar \
+  --data devkit/examples/sum_positive.data
 ```
 
 ## Tools Required
@@ -84,6 +104,16 @@ ALU Test
 ## Full Core Execution Test
 ```sh
 ./scripts/run_core_exec.sh
+```
+
+## Randomized Load/Store Regression
+```sh
+./scripts/run_random.sh
+```
+
+## Formal Check (SymbiYosys)
+```sh
+sby -f formal/regfile/regfile.sby
 ```
 
 # Documentation
