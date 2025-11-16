@@ -77,13 +77,9 @@ ALU Test
 	•	Architecture specification￼
 	•	MVP progress report￼
 
-⸻
-
 # Vision
 
 The long-term goal is to establish a sovereign processor, OS, compiler, and hardware ecosystem for the Republic of Kazakhstan, based on QAR — an open and extensible architecture inspired by RISC-V.
-
-⸻
 
 # License
 
