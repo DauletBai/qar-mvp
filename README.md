@@ -141,6 +141,12 @@ Builds the `gpio_demo` program and runs a dedicated testbench that now showcases
 ```
 Builds the `uart_rs485` program and runs a loopback testbench that exercises the upgraded UART controller with parity + idle gap detection, storing the received bytes plus the idle/TX-empty interrupt snapshot into DMEM.
 
+## Timer / Watchdog Demo
+```sh
+./scripts/run_timer.sh
+```
+Builds the `timer_demo` program and runs a testbench that configures the new timer/watchdog peripheral. The firmware proves CMP0 auto-reload and watchdog expiry handling by popping the latched status bits into DMEM for verification.
+
 ## CAN Loopback Demo
 ```sh
 ./scripts/run_can.sh

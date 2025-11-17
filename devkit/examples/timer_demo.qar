@@ -1,0 +1,47 @@
+.include "common.inc"
+
+    LUI  x5, TIMER_BASE_HI
+    ADDI x5, x5, TIMER_BASE_LO
+
+    ADDI x1, x0, 0        # DMEM pointer
+    ADDI x2, x0, 1        # CMP0 event mask
+    ADDI x3, x0, 4        # WDT mask
+
+    ADDI x4, x0, 0
+    SW   x4, TIMER_PRESCALE(x5)
+
+    ADDI x4, x0, 5
+    SW   x4, TIMER_CMP0(x5)
+    SW   x4, TIMER_CMP0_PERIOD(x5)
+
+    SW   x0, TIMER_CMP1(x5)
+    SW   x0, TIMER_CMP1_PERIOD(x5)
+
+    ADDI x4, x0, 10
+    SW   x4, TIMER_WDT_LOAD(x5)
+
+    ADDI x4, x0, 3        # enable + cmp0 auto reload
+    SW   x4, TIMER_CTRL(x5)
+
+    ADDI x4, x0, 3        # enable watchdog + kick
+    SW   x4, TIMER_WDT_CTRL(x5)
+
+wait_cmp0:
+    LW   x6, TIMER_STATUS(x5)
+    AND  x7, x6, x2
+    BEQ  x7, x0, wait_cmp0
+
+    SW   x7, 0(x1)
+    SW   x2, TIMER_STATUS(x5)
+    ADDI x1, x1, 4
+
+wait_wdt:
+    LW   x6, TIMER_STATUS(x5)
+    AND  x7, x6, x3
+    BEQ  x7, x0, wait_wdt
+
+    SW   x7, 0(x1)
+    SW   x3, TIMER_STATUS(x5)
+
+done:
+    JAL  x0, done
