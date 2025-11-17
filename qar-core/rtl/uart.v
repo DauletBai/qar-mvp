@@ -18,17 +18,88 @@ module qar_uart #(
     output wire        irq
 );
 
-    localparam FIFO_ADDR_BITS = $clog2(FIFO_DEPTH);
+    function integer clog2;
+        input integer value;
+        integer i;
+        begin
+            value = value - 1;
+            for (i = 0; value > 0; i = i + 1)
+                value = value >> 1;
+            clog2 = i;
+        end
+    endfunction
 
-    // Control and status registers
+    localparam FIFO_ADDR_BITS = clog2(FIFO_DEPTH);
+    localparam MAX_FRAME_BITS = 12;
+
+    function [MAX_FRAME_BITS-1:0] build_tx_frame;
+        input [7:0] data_in;
+        input       parity_enable_in;
+        input       parity_odd_in;
+        input       two_stop_in;
+        reg [MAX_FRAME_BITS-1:0] frame_tmp;
+        reg parity_bit_val;
+        integer idx;
+        begin
+            frame_tmp = {MAX_FRAME_BITS{1'b1}};
+            frame_tmp[0] = 1'b0;
+            frame_tmp[8:1] = data_in;
+            idx = 9;
+            if (parity_enable_in) begin
+                parity_bit_val = ^data_in;
+                if (parity_odd_in)
+                    parity_bit_val = ~parity_bit_val;
+                frame_tmp[idx] = parity_bit_val;
+                idx = idx + 1;
+            end
+            frame_tmp[idx] = 1'b1;
+            idx = idx + 1;
+            if (two_stop_in)
+                frame_tmp[idx] = 1'b1;
+            build_tx_frame = frame_tmp;
+        end
+    endfunction
+
+    function [4:0] calc_frame_bits;
+        input parity_enable_in;
+        input two_stop_in;
+        begin
+            calc_frame_bits = 5'd9;
+            if (parity_enable_in)
+                calc_frame_bits = calc_frame_bits + 5'd1;
+            if (two_stop_in)
+                calc_frame_bits = calc_frame_bits + 5'd2;
+            else
+                calc_frame_bits = calc_frame_bits + 5'd1;
+        end
+    endfunction
+
+    function parity_match;
+        input [7:0] data_in;
+        input       parity_enable_in;
+        input       parity_odd_in;
+        input       sampled_parity;
+        reg expected;
+        begin
+            if (!parity_enable_in) begin
+                parity_match = 1'b1;
+            end else begin
+                expected = ^data_in;
+                if (parity_odd_in)
+                    expected = ~expected;
+                parity_match = (sampled_parity == expected);
+            end
+        end
+    endfunction
+
     reg [31:0] ctrl;
     reg [31:0] baud_div;
     reg [31:0] irq_en;
     reg [31:0] irq_status;
     reg [31:0] rs485_ctrl;
     reg [31:0] status;
+    reg [31:0] idle_cfg;
 
-    // FIFOs
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
     reg [7:0] rx_fifo [0:FIFO_DEPTH-1];
@@ -41,57 +112,73 @@ module qar_uart #(
 
     assign irq = |(irq_en & irq_status);
 
-    // TX state
-    reg [9:0] tx_shift;
-    reg [3:0] tx_bits_remaining;
+    reg [MAX_FRAME_BITS-1:0] tx_shift;
+    reg [4:0]  tx_bits_remaining;
     reg [31:0] tx_counter;
 
-    // RX state
-    reg [9:0] rx_shift;
-    reg [3:0] rx_bits_remaining;
     reg [31:0] rx_counter;
-    reg [15:0] idle_counter;
+    reg [31:0] idle_counter;
     reg        idle_irq_pending;
     reg        rx_busy;
     reg        rx_sync1, rx_sync2;
+    reg [4:0]  rx_bit_index;
+    reg [4:0]  rx_total_bits;
+    reg [7:0]  rx_data_latch;
+    reg        rx_parity_latch;
+    reg        rx_parity_enable_latch;
+    reg        rx_parity_odd_latch;
+    reg        rx_two_stop_latch;
+    reg        rx_stop_error;
+    reg        rx_start_error;
 
-    wire uart_enable = ctrl[0];
+    wire ctrl_enable     = ctrl[0];
+    wire ctrl_parity_en  = ctrl[1];
+    wire ctrl_parity_odd = ctrl[2];
+    wire ctrl_two_stop   = ctrl[3];
 
-    // Register write operations
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             ctrl        <= 32'h0000_0001;
             baud_div    <= CLOCK_HZ / 115200;
             irq_en      <= 32'b0;
             irq_status  <= 32'b0;
-            rs485_ctrl  <= 32'h0000_0001; // auto-direction enabled
+            rs485_ctrl  <= 32'h0000_0001;
+            status      <= 32'b0;
+            idle_cfg    <= 32'b0;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
             rx_tail     <= 0;
-            status      <= 32'b0;
             tx          <= 1'b1;
-            tx_shift    <= 10'h3FF;
+            tx_shift    <= {MAX_FRAME_BITS{1'b1}};
             tx_bits_remaining <= 0;
             tx_counter  <= 0;
-            rx_shift    <= 10'b0;
-            rx_bits_remaining <= 0;
             rx_counter  <= 0;
+            idle_counter <= 32'b0;
+            idle_irq_pending <= 1'b0;
             rx_busy     <= 1'b0;
             rx_sync1    <= 1'b1;
             rx_sync2    <= 1'b1;
+            rx_bit_index<= 0;
+            rx_total_bits <= 0;
+            rx_data_latch <= 8'b0;
+            rx_parity_latch <= 1'b0;
+            rx_parity_enable_latch <= 1'b0;
+            rx_parity_odd_latch <= 1'b0;
+            rx_two_stop_latch <= 1'b0;
+            rx_stop_error <= 1'b0;
+            rx_start_error <= 1'b0;
         end else begin
             rx_sync1 <= rx;
             rx_sync2 <= rx_sync1;
 
             if (bus_write) begin
                 case (addr_word)
-                    4'h0: if (!tx_fifo_full)
-                        begin
-                            tx_fifo[tx_head[FIFO_ADDR_BITS-1:0]] <= wdata[7:0];
-                            tx_head <= tx_head + 1;
-                            irq_status[1] <= 1'b0;
-                        end
+                    4'h0: if (!tx_fifo_full) begin
+                        tx_fifo[tx_head[FIFO_ADDR_BITS-1:0]] <= wdata[7:0];
+                        tx_head <= tx_head + 1;
+                        irq_status[1] <= 1'b0;
+                    end
                     4'h2: ctrl <= wdata;
                     4'h3: baud_div <= wdata;
                     4'h4: irq_en <= wdata;
@@ -100,9 +187,16 @@ module qar_uart #(
                         if (wdata[2]) begin
                             status[2] <= 1'b0;
                             status[3] <= 1'b0;
+                            status[5] <= 1'b0;
+                        end
+                        if (wdata[3]) begin
+                            status[6] <= 1'b0;
+                            idle_irq_pending <= 1'b0;
+                            idle_counter <= 32'b0;
                         end
                     end
                     4'h6: rs485_ctrl <= wdata;
+                    4'h7: idle_cfg <= wdata;
                 endcase
             end
 
@@ -118,86 +212,120 @@ module qar_uart #(
             status[1] <= !tx_fifo_full;
             status[4] <= (tx_bits_remaining != 0);
 
-            // Transmit state machine
-            if (!uart_enable) begin
+            if (!ctrl_enable) begin
                 tx_bits_remaining <= 0;
                 tx <= 1'b1;
             end else if (tx_bits_remaining == 0) begin
                 if (!tx_fifo_empty) begin
-                    tx_shift        <= {1'b1, tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]], 1'b0};
-                    tx_bits_remaining <= 10;
-                    tx_counter      <= 0;
-                    tx_tail         <= tx_tail + 1;
+                    tx_shift <= build_tx_frame(
+                        tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]],
+                        ctrl_parity_en,
+                        ctrl_parity_odd,
+                        ctrl_two_stop);
+                    tx_bits_remaining <= calc_frame_bits(ctrl_parity_en, ctrl_two_stop);
+                    tx_counter <= 0;
+                    tx_tail <= tx_tail + 1;
                 end
             end else begin
                 if (tx_counter >= baud_div) begin
-                    tx_counter      <= 0;
-                    tx              <= tx_shift[0];
-                    tx_shift        <= {1'b1, tx_shift[9:1]};
+                    tx_counter <= 0;
+                    tx <= tx_shift[0];
+                    tx_shift <= {1'b1, tx_shift[MAX_FRAME_BITS-1:1]};
                     tx_bits_remaining <= tx_bits_remaining - 1;
                     if (tx_bits_remaining == 1 && tx_fifo_empty)
-                        irq_status[1] <= 1'b1; // TX buffer empty
+                        irq_status[1] <= 1'b1;
                 end else begin
                     tx_counter <= tx_counter + 1;
                 end
             end
 
-            // Receive state machine
-            if (!uart_enable) begin
+            if (!ctrl_enable) begin
                 rx_busy <= 1'b0;
-                rx_bits_remaining <= 0;
-                idle_counter <= 16'h0;
+                rx_bit_index <= 0;
+                idle_counter <= 32'b0;
                 idle_irq_pending <= 1'b0;
-            end else begin
-                idle_counter <= idle_counter + 1;
-                if (idle_counter == 16'hFFFF) begin
-                    idle_irq_pending <= 1'b1;
-                    irq_status[3] <= 1'b1;
-                end
-                if (!rx_busy) begin
-                    if (rx_sync2 == 1'b0) begin
-                        rx_busy          <= 1'b1;
-                        rx_counter       <= baud_div >> 1;
-                        rx_bits_remaining<= 10;
-                        rx_shift         <= 10'b0;
-                        idle_counter     <= 0;
-                        idle_irq_pending <= 1'b0;
+            end else if (!rx_busy) begin
+                if (rx_sync2 == 1'b0) begin
+                    rx_busy <= 1'b1;
+                    rx_counter <= baud_div >> 1;
+                    rx_bit_index <= 0;
+                    rx_total_bits <= calc_frame_bits(ctrl_parity_en, ctrl_two_stop);
+                    rx_parity_enable_latch <= ctrl_parity_en;
+                    rx_parity_odd_latch <= ctrl_parity_odd;
+                    rx_two_stop_latch <= ctrl_two_stop;
+                    rx_data_latch <= 8'b0;
+                    rx_parity_latch <= 1'b0;
+                    rx_stop_error <= 1'b0;
+                    rx_start_error <= 1'b0;
+                    idle_counter <= 32'b0;
+                    idle_irq_pending <= 1'b0;
+                end else if (idle_cfg != 0) begin
+                    if (!idle_irq_pending) begin
+                        idle_counter <= idle_counter + 1;
+                        if (idle_counter >= idle_cfg) begin
+                            idle_irq_pending <= 1'b1;
+                            irq_status[3] <= 1'b1;
+                            status[6] <= 1'b1;
+                        end
                     end
                 end else begin
-                    if (rx_counter >= baud_div) begin
-                        rx_counter <= 0;
-                        rx_shift   <= {rx_sync2, rx_shift[9:1]};
-                        rx_bits_remaining <= rx_bits_remaining - 1;
-                        if (rx_bits_remaining == 1) begin
-                            rx_busy <= 1'b0;
-                            if (!rx_fifo_full) begin
-                                rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= rx_shift[8:1];
-                                rx_head <= rx_head + 1;
-                                irq_status[0] <= 1'b1;
+                    idle_counter <= 32'b0;
+                end
+            end else begin
+                if (rx_counter >= baud_div) begin
+                    rx_counter <= 0;
+                    case (rx_bit_index)
+                        0: begin
+                            if (rx_sync2 != 1'b0)
+                                rx_start_error <= 1'b1;
+                        end
+                        1: rx_data_latch[0] <= rx_sync2;
+                        2: rx_data_latch[1] <= rx_sync2;
+                        3: rx_data_latch[2] <= rx_sync2;
+                        4: rx_data_latch[3] <= rx_sync2;
+                        5: rx_data_latch[4] <= rx_sync2;
+                        6: rx_data_latch[5] <= rx_sync2;
+                        7: rx_data_latch[6] <= rx_sync2;
+                        8: rx_data_latch[7] <= rx_sync2;
+                        default: begin
+                            if (rx_parity_enable_latch && rx_bit_index == 5'd9) begin
+                                rx_parity_latch <= rx_sync2;
                             end else begin
-                                status[3] <= 1'b1; // overrun
-                                irq_status[2] <= 1'b1;
+                                if (rx_sync2 != 1'b1)
+                                    rx_stop_error <= 1'b1;
                             end
                         end
-                    end else begin
-                        rx_counter <= rx_counter + 1;
+                    endcase
+                    rx_bit_index <= rx_bit_index + 1;
+                    if (rx_bit_index == rx_total_bits - 1) begin
+                        rx_busy <= 1'b0;
+                        if (rx_start_error || rx_stop_error) begin
+                            status[2] <= 1'b1;
+                            irq_status[2] <= 1'b1;
+                        end else if (!parity_match(rx_data_latch, rx_parity_enable_latch, rx_parity_odd_latch, rx_parity_latch)) begin
+                            status[5] <= 1'b1;
+                            irq_status[2] <= 1'b1;
+                        end else if (!rx_fifo_full) begin
+                            rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= rx_data_latch;
+                            rx_head <= rx_head + 1;
+                            irq_status[0] <= 1'b1;
+                        end else begin
+                            status[3] <= 1'b1;
+                            irq_status[2] <= 1'b1;
+                        end
                     end
+                end else begin
+                    rx_counter <= rx_counter + 1;
                 end
-            end
-
-            if (rx_sync2 == 1'b1 && rx_busy && rx_bits_remaining == 0) begin
-                status[2] <= 1'b1; // framing error
-                irq_status[2] <= 1'b1;
             end
         end
     end
 
-    // RS-485 control (DE/RE)
     reg drive_de_raw;
     reg drive_re_raw;
 
     always @(*) begin
-        if (rs485_ctrl[0]) begin // auto-direction
+        if (rs485_ctrl[0]) begin
             drive_de_raw = (tx_bits_remaining != 0) || !tx_fifo_empty;
             drive_re_raw = ~drive_de_raw;
         end else begin
@@ -208,7 +336,6 @@ module qar_uart #(
         rs485_re = rs485_ctrl[2] ? ~drive_re_raw : drive_re_raw;
     end
 
-    // Bus read mux
     always @(*) begin
         rdata = 32'b0;
         if (bus_read) begin
@@ -220,6 +347,7 @@ module qar_uart #(
                 4'h4: rdata = irq_en;
                 4'h5: rdata = irq_status;
                 4'h6: rdata = rs485_ctrl;
+                4'h7: rdata = idle_cfg;
                 default: rdata = 32'b0;
             endcase
         end

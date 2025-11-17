@@ -9,28 +9,20 @@
 | Offset | Name        | Description |
 |--------|-------------|-------------|
 | 0x00   | DATA        | TX/RX data register (write pushes to TX FIFO, read pops from RX FIFO). |
-| 0x04   | STATUS      | Bit 0: RX ready, Bit 1: TX space, Bit 2: framing error, Bit 3: overrun, Bit 4: TX busy. |
-| 0x08   | CTRL        | Bit 0: enable (1 = enabled). Remaining bits reserved for future parity/stop options. |
+| 0x04   | STATUS      | Bit0: RX ready, bit1: TX space, bit2: framing error, bit3: RX overrun, bit4: TX busy, bit5: parity error, bit6: idle gap latched. |
+| 0x08   | CTRL        | Bit0: enable, bit1: parity enable, bit2: odd parity (0 = even), bit3: two stop bits (0 = 1 stop). |
 | 0x0C   | BAUD        | Clock divider `N` (bit period = `N` cycles). |
-| 0x10   | IRQ_EN      | Interrupt enable mask (bit 0 = RX ready, bit 1 = TX empty, bit 2 = errors). |
+| 0x10   | IRQ_EN      | Interrupt enable mask (bit0 = RX ready, bit1 = TX empty, bit2 = errors, bit3 = idle gap). |
 | 0x14   | IRQ_STATUS  | Interrupt status (write-1-to-clear). |
-| 0x18   | RS485_CTRL  | Bit 0: auto-direction, bit1: DE polarity, bit2: RE polarity, bit3: manual DE, bit4: manual RE. |
+| 0x18   | RS485_CTRL  | Bit0: auto-direction, bit1: DE polarity invert, bit2: RE polarity invert, bit3: manual DE, bit4: manual RE. |
+| 0x1C   | IDLE_CFG    | Idle gap detector in core clock cycles (0 disables detection). |
 
 ## Behaviour
-- TX/RX FIFOs buffer up to 8 bytes. TX raises `IRQ_STATUS[1]` when FIFO empties; RX raises `IRQ_STATUS[0]` when data arrives. Errors latch in `IRQ_STATUS[2]`.  
-- When auto-direction is enabled, `rs485_de` asserts while TX is shifting or FIFO non-empty; `rs485_re` deasserts (receive disabled) during transmit. In manual mode the firmware drives DE/RE explicitly via bits [3:4].  
-- The aggregated UART interrupt is OR-ed into the external interrupt path; clear conditions by writing `IRQ_STATUS`.
+- TX/RX FIFOs buffer up to 8 bytes. The TX path now inserts parity (even/odd selectable) and one or two stop bits based on `CTRL`. `IRQ_STATUS[1]` asserts when the TX FIFO drains.  
+- RX logic samples start/data/parity/stop bits, performs parity comparison, detects framing errors and overruns, and raises the consolidated error interrupt (`IRQ_STATUS[2]`). `STATUS[5:2]` latch the specific cause until firmware clears the interrupt.  
+- `IDLE_CFG` programs a cycle-count threshold that approximates the Modbus “3.5 characters” gap. When no RX activity occurs for that duration the idle interrupt (`IRQ_STATUS[3]`) fires and `STATUS[6]` latches until cleared.  
+- When auto-direction is enabled (`RS485_CTRL[0]=1`), `rs485_de` mirrors TX activity and `rs485_re` deasserts during transmit to protect the half-duplex bus. Manual mode exposes DE/RE bits directly, plus optional polarity inversion.  
+- The aggregated UART interrupt is OR-ed into the core’s external interrupt path; clear conditions by writing `IRQ_STATUS`.
 
 ## HAL
-See `devkit/hal/uart.h` for C helpers:
-```c
-#include "hal/uart.h"
-
-void app(void) {
-    qar_uart_init(QAR_UART0_BASE, 115200);
-    qar_uart_write(QAR_UART0_BASE, 'H');
-    int ch = qar_uart_read(QAR_UART0_BASE);
-}
-```
-
-An upcoming Modbus/RS-485 example will demonstrate full-duplex transaction handling.
+See `devkit/hal/uart.h` for the updated HAL which exposes configuration helpers for baud, parity, idle detection, interrupts, and RS-485 direction control. The `devkit/examples/uart_rs485.qar` firmware (run via `scripts/run_uart.sh`) demonstrates a full Modbus-friendly loopback: it enables parity, transmits two bytes, waits for auto-looped RX data, and stores an idle-gap interrupt snapshot in DMEM for the regression testbench.

@@ -1,0 +1,53 @@
+.include "common.inc"
+
+    LUI  x5, UART_BASE_HI
+    ADDI x5, x5, UART_BASE_LO
+
+    ADDI x6, x0, 0x3      # enable + even parity
+    SW   x6, UART_CTRL(x5)
+
+    ADDI x7, x0, 16       # small divider for simulation
+    SW   x7, UART_BAUD(x5)
+
+    ADDI x7, x0, 1        # auto DE/RE
+    SW   x7, UART_RS485_CTRL(x5)
+
+    ADDI x7, x0, 200      # idle threshold
+    SW   x7, UART_IDLE_CFG(x5)
+
+    ADDI x7, x0, 0x9      # IRQ: RX ready + idle gap
+    SW   x7, UART_IRQ_EN(x5)
+
+    ADDI x14, x0, 1       # mask for RX ready / IRQ clear
+    ADDI x15, x0, 0x8     # mask for idle IRQ
+
+    ADDI x8, x0, 0x33
+    SW   x8, UART_DATA(x5)
+
+    ADDI x8, x0, 0x55
+    SW   x8, UART_DATA(x5)
+
+    ADDI x9, x0, 0        # DMEM pointer
+    ADDI x10, x0, 2       # number of bytes to capture
+
+wait_rx:
+    LW   x11, UART_STATUS(x5)
+    AND  x12, x11, x14
+    BEQ  x12, x0, wait_rx
+
+    LW   x13, UART_DATA(x5)
+    SW   x13, 0(x9)
+    ADDI x9, x9, 4
+    ADDI x10, x10, -1
+    BNE  x10, x0, wait_rx
+
+wait_idle:
+    LW   x12, UART_IRQ_STATUS(x5)
+    AND  x13, x12, x15
+    BEQ  x13, x0, wait_idle
+
+    SW   x12, 0(x9)
+    SW   x15, UART_IRQ_STATUS(x5)
+
+done:
+    JAL  x0, done

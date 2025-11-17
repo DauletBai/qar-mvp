@@ -135,6 +135,12 @@ This builds and runs the `irq_demo` program, checking timer/external interrupts 
 ```
 Builds the `gpio_demo` program and runs a dedicated testbench that now showcases interrupt-enabled GPIO inputs: the firmware enables bit-8 interrupt, polls `IRQ_STATUS`, and stores the latched value when the testbench toggles an input.
 
+## UART RS-485 Demo
+```sh
+./scripts/run_uart.sh
+```
+Builds the `uart_rs485` program and runs a loopback testbench that exercises the upgraded UART controller with parity + idle gap detection, storing the received bytes plus the idle/TX-empty interrupt snapshot into DMEM.
+
 ## CAN Loopback Demo
 ```sh
 ./scripts/run_can.sh
