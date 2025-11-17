@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+cleanup() {
+    rm -f qar_core_can_tb.out
+}
+trap cleanup EXIT
+
 go run ./devkit/cli build \
     --asm devkit/examples/can_loopback.qar \
     --data devkit/examples/can_loopback.data \

@@ -1,5 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
+cleanup() {
+    rm -f qar_core_random_tb.out
+}
+trap cleanup EXIT
+
 go run ./devkit/cli build \
     --asm devkit/examples/sum_positive.qar \
     --data devkit/examples/sum_positive.data \

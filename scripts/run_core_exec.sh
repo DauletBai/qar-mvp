@@ -1,5 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
+cleanup() {
+    rm -f qar_core_exec_tb.out
+}
+trap cleanup EXIT
+
 go run ./devkit/cli build \
     --asm devkit/examples/irq_demo.qar \
     --data devkit/examples/irq_demo.data \

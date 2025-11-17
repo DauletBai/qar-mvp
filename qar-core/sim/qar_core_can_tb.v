@@ -101,9 +101,35 @@ module qar_core_can_tb();
 
     initial begin
         #200000;
-        $display("DMEM[0] = 0x%08h (expected 0xDEADBEEF)", dmem[0]);
-        if (dmem[0] !== 32'hDEAD_BEEF) begin
-            $display("ERROR: CAN loopback did not store expected data");
+        $display("DMEM[0] = 0x%08h (expected 0x00000123)", dmem[0]);
+        $display("DMEM[1] = 0x%08h (expected 0xDEADBEEF)", dmem[1]);
+        $display("DMEM[2] = 0x%08h (expected 0x00000000)", dmem[2]);
+        $display("DMEM[3] = 0x%08h (expected 0x00000321)", dmem[3]);
+        $display("DMEM[4] = 0x%08h (expected 0xCAFEBABE)", dmem[4]);
+        $display("DMEM[5] = 0x%08h (expected 0x01020304)", dmem[5]);
+
+        if (dmem[0] !== 32'h0000_0123) begin
+            $display("ERROR: first RX ID mismatch");
+            $finish;
+        end
+        if (dmem[1] !== 32'hDEAD_BEEF) begin
+            $display("ERROR: first RX payload word 0 mismatch");
+            $finish;
+        end
+        if (dmem[2] !== 32'h0000_0000) begin
+            $display("ERROR: first RX payload word 1 mismatch");
+            $finish;
+        end
+        if (dmem[3] !== 32'h0000_0321) begin
+            $display("ERROR: second RX ID mismatch");
+            $finish;
+        end
+        if (dmem[4] !== 32'hCAFE_BABE) begin
+            $display("ERROR: second RX payload word 0 mismatch");
+            $finish;
+        end
+        if (dmem[5] !== 32'h0102_0304) begin
+            $display("ERROR: second RX payload word 1 mismatch");
             $finish;
         end
         $display("CAN demo completed.");

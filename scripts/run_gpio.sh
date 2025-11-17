@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+cleanup() {
+    rm -f qar_core_gpio_tb.out
+}
+trap cleanup EXIT
+
 go run ./devkit/cli build \
     --asm devkit/examples/gpio_demo.qar \
     --data devkit/examples/gpio_demo.data \

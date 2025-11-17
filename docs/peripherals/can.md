@@ -33,4 +33,7 @@
 - Error conditions update `ERR_COUNTER`, `STATUS`, and corresponding IRQ bits.
 - Future revisions: multiple filters/mailboxes, CAN-FD, DMA support.
 
-See `devkit/examples/can_loopback.qar` and `scripts/run_can.sh` for a loopback regression, and `devkit/hal/can.h` for a minimal C HAL.
+## Loopback Demo
+`scripts/run_can.sh` assembles `devkit/examples/can_loopback.qar`, which enables loopback mode, transmits two frames (`0x123` with a single word payload and `0x321` with two words), and stores the received IDs + payload words into DMEM[0..5]. The `qar_core_can_tb` harness checks those locations to make sure RX interrupts fire and the payload path works for single- and dual-word DLC values.
+
+See `devkit/examples/can_loopback.qar` and `scripts/run_can.sh` for the regression, and `devkit/hal/can.h` for a minimal C HAL.

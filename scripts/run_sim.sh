@@ -1,5 +1,12 @@
 #!/bin/bash
 
+set -euo pipefail
+
+cleanup() {
+    rm -f qar_core_tb.out
+}
+trap cleanup EXIT
+
 iverilog -o qar_core_tb.out \
     qar-core/rtl/regfile.v \
     qar-core/rtl/alu.v \

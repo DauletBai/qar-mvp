@@ -139,7 +139,7 @@ Builds the `gpio_demo` program and runs a dedicated testbench that now showcases
 ```sh
 ./scripts/run_can.sh
 ```
-Builds the `can_loopback` program and runs a testbench that exercises the CAN controller in loopback mode (TX packet, auto reception, data stored into DMEM for verification).
+Builds the `can_loopback` program and runs a testbench that exercises the CAN controller in loopback mode by transmitting two frames (single-word + double-word payloads) and verifying the IDs/payload words materialize in DMEM.
 
 ## Randomized Load/Store Regression
 ```sh

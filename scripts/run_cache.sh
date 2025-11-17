@@ -2,6 +2,11 @@
 
 set -euo pipefail
 
+cleanup() {
+    rm -f qar_core_cache_tb.out
+}
+trap cleanup EXIT
+
 # Build cache-focused program without clobbering default program.hex
 go run ./devkit/cli build \
     --asm devkit/examples/cache_loop.qar \
