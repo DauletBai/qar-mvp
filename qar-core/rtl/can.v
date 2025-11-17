@@ -25,10 +25,12 @@ module qar_can #(
     reg [31:0] tx_dlc;
     reg [31:0] tx_data0;
     reg [31:0] tx_data1;
-    reg [31:0] rx_id;
-    reg [31:0] rx_dlc;
-    reg [31:0] rx_data0;
-    reg [31:0] rx_data1;
+    reg [31:0] rx_fifo_id [0:3];
+    reg [31:0] rx_fifo_dlc[0:3];
+    reg [31:0] rx_fifo_data0[0:3];
+    reg [31:0] rx_fifo_data1[0:3];
+    reg [2:0]  rx_head;
+    reg [2:0]  rx_tail;
 
     assign irq = |(irq_en & irq_status);
 
@@ -46,10 +48,8 @@ module qar_can #(
             tx_dlc      <= 32'h0;
             tx_data0    <= 32'h0;
             tx_data1    <= 32'h0;
-            rx_id       <= 32'h0;
-            rx_dlc      <= 32'h0;
-            rx_data0    <= 32'h0;
-            rx_data1    <= 32'h0;
+            rx_head     <= 0;
+            rx_tail     <= 0;
         end else begin
             if (bus_write) begin
                 case (addr_word)
@@ -72,19 +72,30 @@ module qar_can #(
                     6'hB: tx_data1 <= wdata;
                     6'hC: begin
                         status[1] <= 1'b0;
-                        if (ctrl[1]) begin
-                            rx_id    <= tx_id;
-                            rx_dlc   <= tx_dlc;
-                            rx_data0 <= tx_data0;
-                            rx_data1 <= tx_data1;
-                            status[0] <= 1'b1;
-                            irq_status[0] <= 1'b1;
+                        if (ctrl[1] && ((tx_id & filter_mask) == (filter_id & filter_mask))) begin
+                            if ((rx_head - rx_tail) < 4) begin
+                                rx_fifo_id[rx_head[1:0]]    <= tx_id;
+                                rx_fifo_dlc[rx_head[1:0]]   <= tx_dlc;
+                                rx_fifo_data0[rx_head[1:0]] <= tx_data0;
+                                rx_fifo_data1[rx_head[1:0]] <= tx_data1;
+                                rx_head <= rx_head + 1;
+                                status[0] <= 1'b1;
+                                irq_status[0] <= 1'b1;
+                            end else begin
+                                err_counter <= err_counter + 1;
+                            end
                         end
                         status[1] <= 1'b1;
                         irq_status[1] <= 1'b1;
                     end
                     default: ;
                 endcase
+            end
+
+            if (bus_read && addr_word == 6'hD && (rx_head != rx_tail)) begin
+                rx_tail <= rx_tail + 1;
+                if ((rx_head - (rx_tail + 1)) == 0)
+                    status[0] <= 1'b0;
             end
         end
     end
@@ -106,10 +117,10 @@ module qar_can #(
                 6'h9: rdata = tx_dlc;
                 6'hA: rdata = tx_data0;
                 6'hB: rdata = tx_data1;
-                6'hD: rdata = rx_id;
-                6'hE: rdata = rx_dlc;
-                6'hF: rdata = rx_data0;
-                6'h10: rdata = rx_data1;
+                6'hD: rdata = rx_fifo_id[rx_tail[1:0]];
+                6'hE: rdata = rx_fifo_dlc[rx_tail[1:0]];
+                6'hF: rdata = rx_fifo_data0[rx_tail[1:0]];
+                6'h10:rdata = rx_fifo_data1[rx_tail[1:0]];
                 default: rdata = 32'b0;
             endcase
         end
