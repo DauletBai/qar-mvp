@@ -43,9 +43,11 @@ module qar_core #(
     output wire [31:0] gpio_out,
     output wire [31:0] gpio_dir,
 
-    // UART interface (placeholder single port)
+    // UART interface
     output wire        uart_tx,
-    input  wire        uart_rx
+    input  wire        uart_rx,
+    output wire        uart_de,
+    output wire        uart_re
 );
 
     // ------------------------------------------------------------
@@ -270,11 +272,10 @@ module qar_core #(
         .rdata     (uart0_read_data),
         .tx        (uart_tx),
         .rx        (uart_rx),
+        .rs485_de  (uart_de),
+        .rs485_re  (uart_re),
         .irq       (uart0_irq)
     );
-
-    wire unused_uart0_irq;
-    assign unused_uart0_irq = uart0_irq;
 
     // ------------------------------------------------------------
     // ALU
@@ -712,6 +713,7 @@ module qar_core #(
     // Interrupt detection
     // ------------------------------------------------------------
     wire timer_trigger_level = ((csr_mtime >= csr_mtimecmp) || irq_timer);
+    wire external_trigger_level = irq_external | uart0_irq;
     wire timer_pending   = csr_mip[7];
     wire external_pending= csr_mip[11];
     
@@ -789,9 +791,8 @@ module qar_core #(
             if (csr_write_en && csr_write_addr == CSR_ADDR_MIP) begin
                 csr_mip <= csr_write_data;
             end else begin
-                csr_mip[7] <= timer_trigger_level;
-                if (irq_external)
-                    csr_mip[11] <= 1'b1;
+                csr_mip[7]  <= timer_trigger_level;
+                csr_mip[11] <= external_trigger_level;
             end
 
             // Fetch management
