@@ -39,6 +39,10 @@ module qar_core_exec_tb();
     reg         uart_rx = 1'b1;
     wire        uart_de;
     wire        uart_re;
+    wire        spi_sck;
+    wire        spi_mosi;
+    wire        spi_miso = 1'b1;
+    wire [3:0]  spi_cs_n;
     reg         irq_timer_ack_q = 0;
     reg         irq_external_ack_q = 0;
     integer     timer_ack_count = 0;
@@ -73,7 +77,11 @@ module qar_core_exec_tb();
         .uart_tx(uart_tx),
         .uart_rx(uart_rx),
         .uart_de(uart_de),
-        .uart_re(uart_re)
+        .uart_re(uart_re),
+        .spi_sck(spi_sck),
+        .spi_mosi(spi_mosi),
+        .spi_miso(spi_miso),
+        .spi_cs_n(spi_cs_n)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];

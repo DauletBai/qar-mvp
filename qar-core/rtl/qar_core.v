@@ -48,7 +48,11 @@ module qar_core #(
     output wire        uart_tx,
     input  wire        uart_rx,
     output wire        uart_de,
-    output wire        uart_re
+    output wire        uart_re,
+    output wire        spi_sck,
+    output wire        spi_mosi,
+    input  wire        spi_miso,
+    output wire [3:0]  spi_cs_n
 );
 
     // ------------------------------------------------------------
@@ -91,6 +95,8 @@ module qar_core #(
     localparam GPIO_ADDR_MASK      = 32'hFFFF_FF00;
     localparam UART0_BASE_ADDR     = 32'h4000_1000;
     localparam UART_ADDR_MASK      = 32'hFFFF_FF00;
+    localparam SPI0_BASE_ADDR      = 32'h4000_4000;
+    localparam SPI_ADDR_MASK       = 32'hFFFF_FF00;
     localparam CAN0_BASE_ADDR      = 32'h4000_3000;
     localparam CAN_ADDR_MASK       = 32'hFFFF_FF00;
     localparam TIMER0_BASE_ADDR    = 32'h4000_5000;
@@ -118,6 +124,10 @@ module qar_core #(
     reg        start_uart0_is_load;
     reg [31:0] start_uart0_addr;
     reg [31:0] start_uart0_wdata;
+    reg        start_spi0;
+    reg        start_spi0_is_load;
+    reg [31:0] start_spi0_addr;
+    reg [31:0] start_spi0_wdata;
     reg        start_can0;
     reg        start_can0_is_load;
     reg [31:0] start_can0_addr;
@@ -138,6 +148,11 @@ module qar_core #(
     wire [3:0]  uart0_addr_word = start_uart0_addr[5:2];
     wire [31:0] uart0_read_data;
     wire        uart0_irq;
+    wire        spi0_write_en = start_spi0 && !start_spi0_is_load;
+    wire        spi0_read_en  = start_spi0 && start_spi0_is_load;
+    wire [5:0]  spi0_addr_word = start_spi0_addr[7:2];
+    wire [31:0] spi0_read_data;
+    wire        spi0_irq;
     wire        can0_write_en = start_can0 && !start_can0_is_load;
     wire        can0_read_en  = start_can0 && start_can0_is_load;
     wire [5:0]  can0_addr_word = start_can0_addr[7:2];
@@ -301,6 +316,21 @@ module qar_core #(
         .irq       (uart0_irq)
     );
 
+    qar_spi spi0 (
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .bus_write (spi0_write_en),
+        .bus_read  (spi0_read_en),
+        .addr_word (spi0_addr_word),
+        .wdata     (start_spi0_wdata),
+        .rdata     (spi0_read_data),
+        .irq       (spi0_irq),
+        .spi_sck   (spi_sck),
+        .spi_mosi  (spi_mosi),
+        .spi_miso  (spi_miso),
+        .spi_cs_n  (spi_cs_n)
+    );
+
     qar_can can0 (
         .clk       (clk),
         .rst_n     (rst_n),
@@ -421,6 +451,8 @@ module qar_core #(
     wire        store_hits_uart0 = ((addr_store_candidate & UART_ADDR_MASK) == UART0_BASE_ADDR);
     wire        load_hits_can0   = ((addr_load_candidate & CAN_ADDR_MASK) == CAN0_BASE_ADDR);
     wire        store_hits_can0  = ((addr_store_candidate & CAN_ADDR_MASK) == CAN0_BASE_ADDR);
+    wire        load_hits_spi0   = ((addr_load_candidate & SPI_ADDR_MASK) == SPI0_BASE_ADDR);
+    wire        store_hits_spi0  = ((addr_store_candidate & SPI_ADDR_MASK) == SPI0_BASE_ADDR);
     wire        load_hits_timer0 = ((addr_load_candidate & TIMER_ADDR_MASK) == TIMER0_BASE_ADDR);
     wire        store_hits_timer0= ((addr_store_candidate & TIMER_ADDR_MASK) == TIMER0_BASE_ADDR);
 
@@ -513,6 +545,10 @@ module qar_core #(
         start_uart0_is_load = 1'b0;
         start_uart0_addr    = 32'b0;
         start_uart0_wdata   = 32'b0;
+        start_spi0          = 1'b0;
+        start_spi0_is_load  = 1'b0;
+        start_spi0_addr     = 32'b0;
+        start_spi0_wdata    = 32'b0;
         start_can0          = 1'b0;
         start_can0_is_load  = 1'b0;
         start_can0_addr     = 32'b0;
@@ -594,6 +630,13 @@ module qar_core #(
                             rf_we               = 1'b1;
                             rf_waddr            = rd;
                             rf_wdata            = uart0_read_data;
+                        end else if (load_hits_spi0) begin
+                            start_spi0         = 1'b1;
+                            start_spi0_is_load = 1'b1;
+                            start_spi0_addr    = addr_load_candidate;
+                            rf_we              = 1'b1;
+                            rf_waddr           = rd;
+                            rf_wdata           = spi0_read_data;
                         end else if (load_hits_can0) begin
                             start_can0         = 1'b1;
                             start_can0_is_load = 1'b1;
@@ -614,7 +657,7 @@ module qar_core #(
                             start_mem_addr    = addr_load_candidate;
                             start_mem_rd      = rd;
                         end
-                        if (!load_hits_gpio && !load_hits_uart0 && !load_hits_can0 && !load_hits_timer0)
+                        if (!load_hits_gpio && !load_hits_uart0 && !load_hits_spi0 && !load_hits_can0 && !load_hits_timer0)
                             stall_ex = (dmem_pending && !mem_ready_in) || start_mem;
                     end else begin
                         illegal_instr = 1'b1;
@@ -633,6 +676,11 @@ module qar_core #(
                             start_uart0_is_load = 1'b0;
                             start_uart0_addr    = addr_store_candidate;
                             start_uart0_wdata   = ex_rs2_val;
+                        end else if (store_hits_spi0) begin
+                            start_spi0         = 1'b1;
+                            start_spi0_is_load = 1'b0;
+                            start_spi0_addr    = addr_store_candidate;
+                            start_spi0_wdata   = ex_rs2_val;
                         end else if (store_hits_can0) begin
                             start_can0         = 1'b1;
                             start_can0_is_load = 1'b0;
@@ -649,7 +697,7 @@ module qar_core #(
                             start_mem_addr    = addr_store_candidate;
                             start_mem_wdata   = ex_rs2_val;
                         end
-                        if (!store_hits_gpio && !store_hits_uart0 && !store_hits_can0 && !store_hits_timer0)
+                        if (!store_hits_gpio && !store_hits_uart0 && !store_hits_spi0 && !store_hits_can0 && !store_hits_timer0)
                             stall_ex = (dmem_pending && !mem_ready_in) || start_mem;
                     end else begin
                         illegal_instr = 1'b1;
@@ -795,7 +843,7 @@ module qar_core #(
     // Interrupt detection
     // ------------------------------------------------------------
     wire timer_trigger_level = ((csr_mtime >= csr_mtimecmp) || irq_timer || timer0_irq);
-    wire external_trigger_level = irq_external | uart0_irq | can0_irq | gpio_irq;
+    wire external_trigger_level = irq_external | uart0_irq | can0_irq | gpio_irq | spi0_irq;
     wire timer_pending   = csr_mip[7];
     wire external_pending= csr_mip[11];
     

@@ -1,0 +1,47 @@
+.include "common.inc"
+
+    LUI  x5, SPI_BASE_HI
+    ADDI x5, x5, SPI_BASE_LO
+
+    ADDI x1, x0, 0        # DMEM pointer
+
+    ADDI x6, x0, 0x11     # enable SPI + loopback
+    SW   x6, SPI_CTRL(x5)
+
+    ADDI x6, x0, 1        # small divider
+    SW   x6, SPI_CLKDIV(x5)
+
+    ADDI x6, x0, 1        # select CS0
+    SW   x6, SPI_CS(x5)
+
+    ADDI x7, x0, 0xA5
+    SW   x7, SPI_TXDATA(x5)
+
+    ADDI x8, x0, 2        # RX ready mask
+
+wait_rx0:
+    LW   x9, SPI_STATUS(x5)
+    AND  x10, x9, x8
+    BEQ  x10, x0, wait_rx0
+
+    LW   x11, SPI_RXDATA(x5)
+    SW   x11, 0(x1)
+    ADDI x1, x1, 4
+
+    ADDI x7, x0, 0x3C
+    SW   x7, SPI_TXDATA(x5)
+
+wait_rx1:
+    LW   x9, SPI_STATUS(x5)
+    AND  x10, x9, x8
+    BEQ  x10, x0, wait_rx1
+
+    LW   x11, SPI_RXDATA(x5)
+    SW   x11, 0(x1)
+    ADDI x1, x1, 4
+
+    LW   x12, SPI_STATUS(x5)
+    SW   x12, 0(x1)
+
+done:
+    JAL  x0, done

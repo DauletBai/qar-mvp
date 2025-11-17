@@ -148,6 +148,12 @@ Builds the `uart_rs485` program and runs a loopback testbench that exercises the
 Builds the `timer_demo` program and runs a testbench that configures the new timer/watchdog peripheral. The firmware proves CMP0 auto-reload and watchdog expiry handling by popping the latched status bits into DMEM for verification.
 It also exercises the manual capture registers and PWM outputs so integrators can validate the HAL before wiring timer interrupts into their firmware.
 
+## SPI Loopback Demo
+```sh
+./scripts/run_spi.sh
+```
+Builds the `spi_loopback` program and runs a testbench that loops MOSI back into MISO, proving that the new SPI master’s TX/RX FIFOs, chip-select handling, and polling interface work end-to-end by checking the received bytes in DMEM.
+
 ## CAN Loopback Demo
 ```sh
 ./scripts/run_can.sh

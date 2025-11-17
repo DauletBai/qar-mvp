@@ -1,6 +1,6 @@
 `timescale 1ns / 1ps
 
-module qar_core_timer_tb();
+module qar_core_spi_tb();
 
     localparam IMEM_WORDS = 64;
     localparam DMEM_WORDS = 64;
@@ -29,13 +29,15 @@ module qar_core_timer_tb();
     wire [31:0] gpio_in = 32'b0;
     wire        gpio_irq;
     wire        uart_tx;
-    wire        uart_rx_loop = 1'b1;
+    reg         uart_rx = 1'b1;
     wire        uart_de;
     wire        uart_re;
     wire        spi_sck;
     wire        spi_mosi;
-    wire        spi_miso = 1'b1;
+    wire        spi_miso;
     wire [3:0]  spi_cs_n;
+
+    assign spi_miso = spi_mosi;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -64,7 +66,7 @@ module qar_core_timer_tb();
         .gpio_dir(gpio_dir),
         .gpio_irq(gpio_irq),
         .uart_tx(uart_tx),
-        .uart_rx(uart_rx_loop),
+        .uart_rx(uart_rx),
         .uart_de(uart_de),
         .uart_re(uart_re),
         .spi_sck(spi_sck),
@@ -77,9 +79,9 @@ module qar_core_timer_tb();
     reg [31:0] dmem [0:DMEM_WORDS-1];
 
     initial begin
-        $display("=== QAR-Core Timer/Watchdog Demo ===");
-        $readmemh("program_timer.hex", imem);
-        $readmemh("data_timer.hex", dmem);
+        $display("=== QAR-Core SPI Loopback Demo ===");
+        $readmemh("program_spi.hex", imem);
+        $readmemh("data_spi.hex", dmem);
         imem_ready = 0;
         mem_ready  = 0;
         rst_n = 0;
@@ -108,27 +110,17 @@ module qar_core_timer_tb();
 
     initial begin
         #400000;
-        $display("DMEM[0] = 0x%08h (expected 0x00000001)", dmem[0]);
-        $display("DMEM[1] = 0x%08h (expected 0x00000004)", dmem[1]);
-        $display("DMEM[2] = 0x%08h (expected 0x00000064)", dmem[2]);
-        $display("DMEM[3] = 0x%08h (expected 0x00000001)", dmem[3]);
-        if (dmem[0] !== 32'h0000_0001) begin
-            $display("ERROR: Timer status mismatch");
+        $display("DMEM[0] = 0x%08h (expected 0x000000A5)", dmem[0]);
+        $display("DMEM[1] = 0x%08h (expected 0x0000003C)", dmem[1]);
+        if (dmem[0] !== 32'h0000_00A5) begin
+            $display("ERROR: SPI loopback first word mismatch");
             $finish;
         end
-        if (dmem[1] !== 32'h0000_0004) begin
-            $display("ERROR: Watchdog status mismatch");
+        if (dmem[1] !== 32'h0000_003C) begin
+            $display("ERROR: SPI loopback second word mismatch");
             $finish;
         end
-        if (dmem[2] !== 32'h0000_0064) begin
-            $display("ERROR: Capture register mismatch");
-            $finish;
-        end
-        if (dmem[3] !== 32'h0000_0001) begin
-            $display("ERROR: PWM status mismatch");
-            $finish;
-        end
-        $display("Timer demo completed.");
+        $display("SPI demo completed.");
         $finish;
     end
 

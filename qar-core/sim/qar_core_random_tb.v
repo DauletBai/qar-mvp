@@ -31,6 +31,10 @@ module qar_core_random_tb();
     reg         uart_rx = 1'b1;
     wire        uart_de;
     wire        uart_re;
+    wire        spi_sck;
+    wire        spi_mosi;
+    wire        spi_miso = 1'b1;
+    wire [3:0]  spi_cs_n;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -61,7 +65,11 @@ module qar_core_random_tb();
         .uart_tx(uart_tx),
         .uart_rx(uart_rx),
         .uart_de(uart_de),
-        .uart_re(uart_re)
+        .uart_re(uart_re),
+        .spi_sck(spi_sck),
+        .spi_mosi(spi_mosi),
+        .spi_miso(spi_miso),
+        .spi_cs_n(spi_cs_n)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];
