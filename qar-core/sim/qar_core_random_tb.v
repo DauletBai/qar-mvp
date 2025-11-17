@@ -26,6 +26,8 @@ module qar_core_random_tb();
     wire [31:0] gpio_out;
     wire [31:0] gpio_dir;
     wire [31:0] gpio_in = 32'b0;
+    wire        uart_tx;
+    reg         uart_rx = 1'b1;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -51,7 +53,9 @@ module qar_core_random_tb();
         .irq_external_ack(irq_external_ack),
         .gpio_in(gpio_in),
         .gpio_out(gpio_out),
-        .gpio_dir(gpio_dir)
+        .gpio_dir(gpio_dir),
+        .uart_tx(uart_tx),
+        .uart_rx(uart_rx)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];
