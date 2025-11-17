@@ -10,6 +10,7 @@
 #define QAR_CAN_CTRL(base)      QAR_CAN_REG((base), 0x00)
 #define QAR_CAN_STATUS(base)    QAR_CAN_REG((base), 0x04)
 #define QAR_CAN_BITTIME(base)   QAR_CAN_REG((base), 0x08)
+#define QAR_CAN_IRQ_EN(base)    QAR_CAN_REG((base), 0x10)
 #define QAR_CAN_IRQ_STATUS(base) QAR_CAN_REG((base), 0x14)
 #define QAR_CAN_TX_ID(base)     QAR_CAN_REG((base), 0x20)
 #define QAR_CAN_TX_DLC(base)    QAR_CAN_REG((base), 0x24)
@@ -20,11 +21,36 @@
 #define QAR_CAN_RX_DLC(base)    QAR_CAN_REG((base), 0x38)
 #define QAR_CAN_RX_DATA0(base)  QAR_CAN_REG((base), 0x3C)
 #define QAR_CAN_RX_DATA1(base)  QAR_CAN_REG((base), 0x40)
+#define QAR_CAN_RX_FIFO(base)   QAR_CAN_REG((base), 0x44)
+
+#define QAR_CAN_STATUS_RX_PENDING (1u << 0)
+#define QAR_CAN_STATUS_TX_IDLE    (1u << 1)
+#define QAR_CAN_STATUS_RX_OVERFLOW (1u << 2)
+
+#define QAR_CAN_IRQ_RX_READY (1u << 0)
+#define QAR_CAN_IRQ_TX_DONE  (1u << 1)
+#define QAR_CAN_IRQ_RX_OVF   (1u << 2)
 
 static inline void qar_can_init(uint32_t base, uint32_t bittime, int loopback)
 {
     QAR_CAN_BITTIME(base) = bittime;
     QAR_CAN_CTRL(base) = (loopback ? 0x2 : 0x0) | 0x1;
+}
+
+static inline void qar_can_enable_irq(uint32_t base, uint32_t mask)
+{
+    QAR_CAN_IRQ_STATUS(base) = mask; /* clear sticky bits before enabling */
+    QAR_CAN_IRQ_EN(base) |= mask;
+}
+
+static inline void qar_can_disable_irq(uint32_t base, uint32_t mask)
+{
+    QAR_CAN_IRQ_EN(base) &= ~mask;
+}
+
+static inline void qar_can_clear_irq(uint32_t base, uint32_t mask)
+{
+    QAR_CAN_IRQ_STATUS(base) = mask;
 }
 
 static inline void qar_can_send_word(uint32_t base, uint32_t id, uint32_t data0, uint32_t data1, uint8_t dlc)
@@ -38,12 +64,32 @@ static inline void qar_can_send_word(uint32_t base, uint32_t id, uint32_t data0,
 
 static inline int qar_can_rx_ready(uint32_t base)
 {
-    return (QAR_CAN_STATUS(base) & 0x1) != 0;
+    return (QAR_CAN_STATUS(base) & QAR_CAN_STATUS_RX_PENDING) != 0;
 }
 
-static inline uint32_t qar_can_read_word(uint32_t base)
+static inline void qar_can_read_payload(uint32_t base, uint32_t *id, uint32_t *data0, uint32_t *data1)
 {
-    return QAR_CAN_RX_DATA0(base);
+    if (id)
+        *id = QAR_CAN_RX_ID(base);
+    if (data0)
+        *data0 = QAR_CAN_RX_DATA0(base);
+    if (data1)
+        *data1 = QAR_CAN_RX_DATA1(base);
+}
+
+static inline void qar_can_pop_rx(uint32_t base)
+{
+    QAR_CAN_RX_FIFO(base) = 0x1;
+}
+
+static inline void qar_can_flush_rx(uint32_t base)
+{
+    QAR_CAN_RX_FIFO(base) = 0x2;
+}
+
+static inline uint32_t qar_can_rx_count(uint32_t base)
+{
+    return QAR_CAN_RX_FIFO(base) & 0x7;
 }
 
 #endif /* QAR_HAL_CAN_H */

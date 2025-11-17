@@ -3,7 +3,7 @@
 set -euo pipefail
 
 cleanup() {
-    rm -f qar_core_uart_tb.out
+    rm -f qar_core_uart_tb.out program_uart.hex data_uart.hex
 }
 trap cleanup EXIT
 

@@ -145,7 +145,7 @@ Builds the `uart_rs485` program and runs a loopback testbench that exercises the
 ```sh
 ./scripts/run_can.sh
 ```
-Builds the `can_loopback` program and runs a testbench that exercises the CAN controller in loopback mode by transmitting two frames (single-word + double-word payloads) and verifying the IDs/payload words materialize in DMEM.
+Builds the `can_loopback` program and runs a testbench that exercises the CAN controller in loopback mode by transmitting two frames (single-word + double-word payloads), popping them via the new RX FIFO control register, and verifying the IDs/payload words materialize in DMEM.
 
 ## Randomized Load/Store Regression
 ```sh

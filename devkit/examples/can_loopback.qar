@@ -11,6 +11,7 @@
     SW   x6, CAN_BITTIME(x5)
 
     ADDI x10, x0, 1       # mask for STATUS + IRQ acks
+    ADDI x15, x0, 1       # RX FIFO pop command
 
     # -------- Frame 0: ID 0x123, payload 0xDEADBEEF --------
     ADDI x7, x0, 0x123
@@ -33,12 +34,13 @@ wait_rx0:
     AND  x11, x11, x10
     BEQ  x11, x0, wait_rx0
 
+    LW   x12, CAN_RX_ID(x5)
+    SW   x12, 0(x1)
     LW   x12, CAN_RX_DATA0(x5)
     SW   x12, 4(x1)
     LW   x12, CAN_RX_DATA1(x5)
     SW   x12, 8(x1)
-    LW   x12, CAN_RX_ID(x5)
-    SW   x12, 0(x1)
+    SW   x15, CAN_RX_FIFO_CTRL(x5)
     SW   x10, CAN_IRQ_STATUS(x5)
 
     ADDI x1, x1, 12
@@ -66,12 +68,13 @@ wait_rx1:
     AND  x11, x11, x10
     BEQ  x11, x0, wait_rx1
 
+    LW   x12, CAN_RX_ID(x5)
+    SW   x12, 0(x1)
     LW   x12, CAN_RX_DATA0(x5)
     SW   x12, 4(x1)
     LW   x12, CAN_RX_DATA1(x5)
     SW   x12, 8(x1)
-    LW   x12, CAN_RX_ID(x5)
-    SW   x12, 0(x1)
+    SW   x15, CAN_RX_FIFO_CTRL(x5)
     SW   x10, CAN_IRQ_STATUS(x5)
 
 done:
