@@ -50,6 +50,8 @@ module qar_uart #(
     reg [9:0] rx_shift;
     reg [3:0] rx_bits_remaining;
     reg [31:0] rx_counter;
+    reg [15:0] idle_counter;
+    reg        idle_irq_pending;
     reg        rx_busy;
     reg        rx_sync1, rx_sync2;
 
@@ -144,13 +146,22 @@ module qar_uart #(
             if (!uart_enable) begin
                 rx_busy <= 1'b0;
                 rx_bits_remaining <= 0;
+                idle_counter <= 16'h0;
+                idle_irq_pending <= 1'b0;
             end else begin
+                idle_counter <= idle_counter + 1;
+                if (idle_counter == 16'hFFFF) begin
+                    idle_irq_pending <= 1'b1;
+                    irq_status[3] <= 1'b1;
+                end
                 if (!rx_busy) begin
                     if (rx_sync2 == 1'b0) begin
                         rx_busy          <= 1'b1;
                         rx_counter       <= baud_div >> 1;
                         rx_bits_remaining<= 10;
                         rx_shift         <= 10'b0;
+                        idle_counter     <= 0;
+                        idle_irq_pending <= 1'b0;
                     end
                 end else begin
                     if (rx_counter >= baud_div) begin
