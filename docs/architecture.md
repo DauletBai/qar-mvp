@@ -119,6 +119,7 @@ These instructions form the public contract advertised by DevKit programs and au
 - **Configurable priority + ACKs:** custom `irqprio` and `irqack` CSRs let firmware decide which source preempts and emit explicit timer/external end-of-interrupt strobes (which also clear the latched `mip` bits), making nested IRQ demos straightforward.
 - **Assembler + DevKit:** `qarsim` emits `LUI`, `AUIPC`, `CSRR*`, `ECALL`, and `MRET`, plus `%hi/%lo` label helpers. The new `irq_demo` example programs the timer, handles an external interrupt, and exercises ECALL/MRET with automated verification in `qar_core_exec_tb`.
 - **Verification:** the execution bench checks timer/external counters and memory markers, while randomized load/store tests continue to stress the memory handshake via the sum-positive program. Interrupt regression is now part of the default `run_core_exec.sh` flow.
+- **Cache regression:** a dedicated cache-focused simulation (`scripts/run_cache.sh`) instantiates QAR-Core with `ICACHE_ENTRIES` enabled to ensure instruction-cache hits are exercised alongside the default configurations.
 
 ### What it can do
 - Demonstrate software-configurable timer interrupts (via `mtimecmp`) and level-sensitive external interrupts with automatic CSR bookkeeping.

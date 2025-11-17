@@ -135,6 +135,12 @@ This builds and runs the `irq_demo` program, checking timer/external interrupts 
 ```
 This rebuilds the `sum_positive` program and perturbs its data set to stress the LW/SW path with injected wait states.
 
+## Cache Configuration Regression
+```sh
+./scripts/run_cache.sh
+```
+Builds a dedicated loop program plus the `qar_core_cache_tb` harness to run the core with `ICACHE_ENTRIES` enabled, ensuring that the instruction-cache configuration executes correctly while reporting the observed IMEM traffic.
+
 ## Formal Check (SymbiYosys)
 ```sh
 sby -f formal/regfile/regfile.sby

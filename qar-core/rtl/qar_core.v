@@ -93,6 +93,18 @@ module qar_core #(
     reg [31:0] icache_data [0:REAL_ICACHE_ENTRIES-1];
     reg [ICACHE_TAG_BITS-1:0] icache_tag [0:REAL_ICACHE_ENTRIES-1];
     reg                       icache_valid [0:REAL_ICACHE_ENTRIES-1];
+
+    always @(*) begin
+        if ((ICACHE_ENABLED != 0) &&
+            icache_valid[next_cache_index] &&
+            (icache_tag[next_cache_index] == next_cache_tag)) begin
+            icache_lookup_hit  = 1'b1;
+            icache_lookup_word = icache_data[next_cache_index];
+        end else begin
+            icache_lookup_hit  = 1'b0;
+            icache_lookup_word = 32'b0;
+        end
+    end
     reg [ICACHE_INDEX_BITS-1:0] icache_fill_index;
     reg [ICACHE_TAG_BITS-1:0]   icache_fill_tag;
     reg                         fetch_req_cacheable;
@@ -114,9 +126,8 @@ module qar_core #(
     wire [ICACHE_INDEX_BITS-1:0] next_cache_index = (ICACHE_ENABLED != 0) ?
         next_fetch_addr[ICACHE_INDEX_BITS+1:2] : {ICACHE_INDEX_BITS{1'b0}};
     wire [ICACHE_TAG_BITS-1:0]   next_cache_tag   = next_fetch_addr[ICACHE_INDEX_BITS+ICACHE_TAG_BITS+1:ICACHE_INDEX_BITS+2];
-    wire                        icache_hit       = (ICACHE_ENABLED != 0) &&
-                                                   icache_valid[next_cache_index] &&
-                                                   (icache_tag[next_cache_index] == next_cache_tag);
+    reg                          icache_lookup_hit;
+    reg  [31:0]                  icache_lookup_word;
 
     generate
         if (USE_INTERNAL_IMEM) begin : gen_internal_imem
@@ -693,14 +704,14 @@ module qar_core #(
                 ex_valid            <= 1'b0;
             end else begin
                 if (!fetch_req_pending && (fetch_buffer_occupancy < PREFETCH_DEPTH)) begin
-                    if ((ICACHE_ENABLED != 0) && icache_hit) begin
+                    if (icache_lookup_hit) begin
                         if (if_fetch_target) begin
                             if_valid <= 1'b1;
-                            if_instr <= icache_data[next_cache_index];
+                            if_instr <= icache_lookup_word;
                             if_pc    <= pc_fetch;
                         end else begin
                             prefetch_slot_valid <= 1'b1;
-                            prefetch_slot_instr <= icache_data[next_cache_index];
+                            prefetch_slot_instr <= icache_lookup_word;
                             prefetch_slot_pc    <= pc_fetch;
                         end
                         pc_fetch <= pc_fetch + 32'd4;

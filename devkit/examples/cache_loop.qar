@@ -1,0 +1,5 @@
+loop:
+    ADDI x1, x1, 1
+    ADDI x1, x1, 1
+    ADDI x1, x1, 1
+    JAL  x0, loop
