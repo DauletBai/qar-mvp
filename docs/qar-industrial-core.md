@@ -65,9 +65,18 @@ This document captures the definition of the “universal industrial computer”
 
 ### Phase 1 (FPGA-based reference)
 1. RTL integration:
-   - Add APB-like bus for peripherals.  
-   - Implement GPIO, UART/RS-485, CAN, timers, watchdog blocks.  
-   - Hook up to QAR-Core via memory-mapped registers.
+   - Adopt a two-layer bus: a lightweight AXI-lite bridge for memory (Flash/SRAM) and a peripheral APB window mapped to 0x4000_0000+.  
+   - Implement the following blocks with initial address map:  
+     | Block | Base Address | Notes |  
+     |-------|--------------|-------|  
+     | GPIO  | 0x4000_0000  | DIR, OUT, IN, INT_EN/STATUS |  
+     | UART0 (RS-232) | 0x4000_1000 | TX/RX, baud config |  
+     | UART1 (RS-485) | 0x4000_2000 | Includes DE/RE control |  
+     | CAN0  | 0x4000_3000  | Mailboxes, filters |  
+     | I2C/SPI shared | 0x4000_4000 | Simple master mode |  
+     | Timer/PWM block | 0x4000_5000 | 4 timers with compare/PWM |  
+     | Watchdog | 0x4000_6000 | Window + reset control |  
+   - Hook up to QAR-Core via memory-mapped registers and IRQ lines (GPIO, UART, CAN, timers).
 2. Board:
    - Use affordable FPGA (e.g., Lattice ECP5 or Intel MAX10).  
    - Provide connectors/breakout for IO and comm ports.  
@@ -80,6 +89,39 @@ This document captures the definition of the “universal industrial computer”
 1. Replace FPGA with ASIC or hardened SoM.  
 2. Add enclosure (DIN rail).  
 3. Pursue industrial certification (EMC, temperature, safety).
+
+---
+
+## 6. SoC Block Diagram (Conceptual)
+
+```
+                +-------------------+
+                |   QAR-Core v0.7   |
+                |  RV32IM + caches  |
+                +---------+---------+
+                          |
+        AXI-lite (memory) | APB-lite (peripherals)
+                          |
+    +---------------------+----------------------+
+    |                                            |
++---------+   +---------+   +---------+   +-------------+
+| SRAM/   |   | QSPI    |   | GPIO    |   | UART0 (RS232)|
+| SDRAM   |   | Flash   |   | 32-bit  |   +-------------+
++---------+   +---------+   +---------+   +-------------+
+                                            | UART1 (RS485)
++---------+   +---------+   +---------+   +-------------+
+| Cache/  |   | DMA (f) |   | CAN0    |   | SPI/I2C     |
+| Buffer  |   |         |   +---------+   +-------------+
+                                             |
++---------+   +---------+   +---------+   +-------------+
+| Timers/ |   | Watchdog|   | RTC     |   | Future PWM  |
+| PWM     |   +---------+   +---------+   +-------------+
+```
+
+Legend:  
+- AXI-lite handles instruction/data fetch to external Flash/SRAM.  
+- APB-lite window hosts low-speed peripherals.  
+- Future DMA (f) optional once we add high-speed peripherals.
 
 ---
 

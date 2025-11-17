@@ -3,6 +3,7 @@
 iverilog -o qar_core_tb.out \
     qar-core/rtl/regfile.v \
     qar-core/rtl/alu.v \
+    qar-core/rtl/gpio.v \
     qar-core/rtl/qar_core.v \
     qar-core/sim/qar_core_tb.v
 

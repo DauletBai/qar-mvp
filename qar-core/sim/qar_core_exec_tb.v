@@ -31,6 +31,9 @@ module qar_core_exec_tb();
     reg  [31:0] mem_rdata;
     wire        irq_timer_ack;
     wire        irq_external_ack;
+    wire [31:0] gpio_out;
+    wire [31:0] gpio_dir;
+    wire [31:0] gpio_in = 32'b0;
     reg         irq_timer_ack_q = 0;
     reg         irq_external_ack_q = 0;
     integer     timer_ack_count = 0;
@@ -57,7 +60,10 @@ module qar_core_exec_tb();
         .irq_timer(1'b0),
         .irq_external(irq_external),
         .irq_timer_ack(irq_timer_ack),
-        .irq_external_ack(irq_external_ack)
+        .irq_external_ack(irq_external_ack),
+        .gpio_in(gpio_in),
+        .gpio_out(gpio_out),
+        .gpio_dir(gpio_dir)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];
