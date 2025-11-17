@@ -135,6 +135,12 @@ This builds and runs the `irq_demo` program, checking timer/external interrupts 
 ```
 Builds the `gpio_demo` program and runs a dedicated testbench that drives the new memory-mapped GPIO peripheral, showing how industrial firmware can toggle output lines.
 
+## CAN Loopback Demo
+```sh
+./scripts/run_can.sh
+```
+Builds the `can_loopback` program and runs a testbench that exercises the CAN controller in loopback mode (TX packet, auto reception, data stored into DMEM for verification).
+
 ## Randomized Load/Store Regression
 ```sh
 ./scripts/run_random.sh

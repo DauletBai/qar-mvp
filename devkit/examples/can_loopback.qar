@@ -1,0 +1,39 @@
+.include "common.inc"
+
+    LUI  x5, CAN_BASE_HI
+    ADDI x5, x5, CAN_BASE_LO
+
+    ADDI x6, x0, 0x3      # enable + loopback
+    SW   x6, CAN_CTRL(x5)
+    ADDI x6, x0, 0x13     # simple bittime divider
+    SW   x6, CAN_BITTIME(x5)
+
+    ADDI x7, x0, 0x123    # ID
+    SW   x7, CAN_TX_ID(x5)
+
+    ADDI x8, x0, 4        # DLC
+    SW   x8, CAN_TX_DLC(x5)
+
+    LUI  x9, 0xDEADB
+    ADDI x9, x9, 0x600
+    ADDI x9, x9, 0x600
+    ADDI x9, x9, 0x2EF
+    SW   x9, CAN_TX_DATA0(x5)
+    SW   x0, CAN_TX_DATA1(x5)
+
+    ADDI x10, x0, 1
+    SW   x10, CAN_TX_CMD(x5)
+    ADDI x14, x0, 1
+
+wait_rx:
+    LW   x11, CAN_STATUS(x5)
+    AND  x11, x11, x14
+    BEQ  x11, x0, wait_rx
+
+    LW   x12, CAN_RX_DATA0(x5)
+    SW   x12, 0(x0)
+
+    ADDI x13, x0, 1
+    SW   x13, CAN_IRQ_STATUS(x5)
+
+    JAL  x0, wait_rx

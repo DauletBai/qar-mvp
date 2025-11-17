@@ -32,3 +32,5 @@
 - RX path filters frames based on filter/mask; accepted frames populate RX mailbox and assert `IRQ_STATUS[0]`.
 - Error conditions update `ERR_COUNTER`, `STATUS`, and corresponding IRQ bits.
 - Future revisions: multiple filters/mailboxes, CAN-FD, DMA support.
+
+See `devkit/examples/can_loopback.qar` and `scripts/run_can.sh` for a loopback regression, and `devkit/hal/can.h` for a minimal C HAL.
