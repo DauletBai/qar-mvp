@@ -17,7 +17,7 @@ The project began with the goal of creating a functional RV32I-style prototype C
 - **QAR-Core v0.3 — DONE.** Control flow widened (BNE/BLT/JAL/JALR), the Go-based DevKit CLI/assembler (`qarsim`) now generates `program.hex`/`data.hex`, and verification includes randomized regressions plus a SymbiYosys harness.
 - **QAR-Core v0.4 — DONE.** Data memory now streams through a valid/ready interface, BGE/BGEU landed, minimal CSR/trap support (`CSRRW`, `ECALL`) is live, `qarsim` gained `.include`/`.equ` support with new example programs, and the SymbiYosys flow (BMC depth 8) + randomized wait-state regression are part of the documented workflow.
 - **QAR-Core v0.5 — DONE.** Two-stage IF/EX pipeline with streaming instruction + data buses, CSRRS/CSRRC/MRET traps, DevKit-powered program generation, and regression coverage (deterministic + randomized + SymbiYosys) define the new baseline.
-- **QAR-Core v0.6 — DONE.** Three-stage IF/ID/EX pipeline with forwarding + load-use interlocks, a programmable timer + external interrupt path (`mie/mip/mtime/mtimecmp`) with software-configurable priorities/acknowledgments, extended assembler support (`LUI/AUIPC/CSRR*/ECALL/MRET` with `%hi/%lo`), and a new `irq_demo` DevKit example/testbench that exercises ECALL/IRQ/MRET.
+- **QAR-Core v0.6 — DONE.** Three-stage IF/ID/EX pipeline with forwarding + load-use interlocks, a programmable timer + external interrupt path (`mie/mip/mtime/mtimecmp`) with software-configurable priorities/acknowledgments, an optional direct-mapped instruction cache (via `ICACHE_ENTRIES`), extended assembler support (`LUI/AUIPC/CSRR*/ECALL/MRET` with `%hi/%lo`), and a new `irq_demo` DevKit example/testbench that exercises ECALL/IRQ/MRET.
 
 ---
 

@@ -12,7 +12,8 @@ module qar_core #(
     parameter USE_INTERNAL_IMEM = 0,
     parameter USE_INTERNAL_DMEM = 0,
     parameter IMEM_DATA_WIDTH   = 32,
-    parameter DMEM_DATA_WIDTH   = 32
+    parameter DMEM_DATA_WIDTH   = 32,
+    parameter ICACHE_ENTRIES    = 0
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -64,9 +65,16 @@ module qar_core #(
         if (DMEM_DATA_WIDTH != 32) begin
             $fatal("DMEM_DATA_WIDTH values other than 32 are not supported in this prototype");
         end
+        if (ICACHE_ENTRIES == 1) begin
+            $fatal("ICACHE_ENTRIES must be 0 (disabled) or a power-of-two >= 2");
+        end
     end
 
     localparam PREFETCH_DEPTH = 2;
+    localparam ICACHE_ENABLED      = (ICACHE_ENTRIES > 0) ? 1 : 0;
+    localparam ICACHE_INDEX_BITS   = (ICACHE_ENTRIES > 0) ? clog2(ICACHE_ENTRIES) : 1;
+    localparam ICACHE_TAG_BITS     = 32 - 2 - ICACHE_INDEX_BITS;
+    localparam REAL_ICACHE_ENTRIES = (ICACHE_ENTRIES > 0) ? ICACHE_ENTRIES : 1;
 
     // ------------------------------------------------------------
     // Fetch / Decode / Execute pipeline state
@@ -81,6 +89,13 @@ module qar_core #(
     reg        prefetch_slot_valid;
     reg [31:0] prefetch_slot_instr;
     reg [31:0] prefetch_slot_pc;
+    integer icache_init_idx;
+    reg [31:0] icache_data [0:REAL_ICACHE_ENTRIES-1];
+    reg [ICACHE_TAG_BITS-1:0] icache_tag [0:REAL_ICACHE_ENTRIES-1];
+    reg                       icache_valid [0:REAL_ICACHE_ENTRIES-1];
+    reg [ICACHE_INDEX_BITS-1:0] icache_fill_index;
+    reg [ICACHE_TAG_BITS-1:0]   icache_fill_tag;
+    reg                         fetch_req_cacheable;
 
     reg        id_valid;
     reg [31:0] id_instr;
@@ -95,6 +110,13 @@ module qar_core #(
     wire       imem_ready_in;
     wire [IMEM_DATA_WIDTH-1:0] imem_rdata_in;
     wire [31:0] imem_instr_word = imem_rdata_in[31:0];
+    wire [31:0] next_fetch_addr = pc_fetch;
+    wire [ICACHE_INDEX_BITS-1:0] next_cache_index = (ICACHE_ENABLED != 0) ?
+        next_fetch_addr[ICACHE_INDEX_BITS+1:2] : {ICACHE_INDEX_BITS{1'b0}};
+    wire [ICACHE_TAG_BITS-1:0]   next_cache_tag   = next_fetch_addr[ICACHE_INDEX_BITS+ICACHE_TAG_BITS+1:ICACHE_INDEX_BITS+2];
+    wire                        icache_hit       = (ICACHE_ENABLED != 0) &&
+                                                   icache_valid[next_cache_index] &&
+                                                   (icache_tag[next_cache_index] == next_cache_tag);
 
     generate
         if (USE_INTERNAL_IMEM) begin : gen_internal_imem
@@ -614,6 +636,9 @@ module qar_core #(
             prefetch_slot_valid <= 1'b0;
             prefetch_slot_instr <= 32'b0;
             prefetch_slot_pc  <= 32'b0;
+            fetch_req_cacheable <= 1'b0;
+            icache_fill_index <= {ICACHE_INDEX_BITS{1'b0}};
+            icache_fill_tag   <= {ICACHE_TAG_BITS{1'b0}};
             id_valid          <= 1'b0;
             id_instr          <= 32'b0;
             id_pc             <= 32'b0;
@@ -640,6 +665,11 @@ module qar_core #(
             csr_irq_priority  <= 1'b0;
             irq_timer_ack     <= 1'b0;
             irq_external_ack  <= 1'b0;
+            for (icache_init_idx = 0; icache_init_idx < REAL_ICACHE_ENTRIES; icache_init_idx = icache_init_idx + 1) begin
+                icache_valid[icache_init_idx] <= 1'b0;
+                icache_data[icache_init_idx]  <= 32'b0;
+                icache_tag[icache_init_idx]   <= {ICACHE_TAG_BITS{1'b0}};
+            end
         end else begin
             irq_timer_ack    <= 1'b0;
             irq_external_ack <= 1'b0;
@@ -656,15 +686,32 @@ module qar_core #(
             if (trap_request || flush_pipe) begin
                 pc_fetch            <= trap_request ? trap_target : branch_target;
                 fetch_req_pending   <= 1'b0;
+                fetch_req_cacheable <= 1'b0;
                 if_valid            <= 1'b0;
                 prefetch_slot_valid <= 1'b0;
                 id_valid            <= 1'b0;
                 ex_valid            <= 1'b0;
             end else begin
                 if (!fetch_req_pending && (fetch_buffer_occupancy < PREFETCH_DEPTH)) begin
-                    fetch_req_pending <= 1'b1;
-                    fetch_req_addr    <= pc_fetch;
-                    pc_fetch          <= pc_fetch + 32'd4;
+                    if ((ICACHE_ENABLED != 0) && icache_hit) begin
+                        if (if_fetch_target) begin
+                            if_valid <= 1'b1;
+                            if_instr <= icache_data[next_cache_index];
+                            if_pc    <= pc_fetch;
+                        end else begin
+                            prefetch_slot_valid <= 1'b1;
+                            prefetch_slot_instr <= icache_data[next_cache_index];
+                            prefetch_slot_pc    <= pc_fetch;
+                        end
+                        pc_fetch <= pc_fetch + 32'd4;
+                    end else begin
+                        fetch_req_pending   <= 1'b1;
+                        fetch_req_addr      <= pc_fetch;
+                        fetch_req_cacheable <= (ICACHE_ENABLED != 0);
+                        icache_fill_index   <= next_cache_index;
+                        icache_fill_tag     <= next_cache_tag;
+                        pc_fetch            <= pc_fetch + 32'd4;
+                    end
                 end
 
                 if (id_accept) begin
@@ -692,6 +739,12 @@ module qar_core #(
                         prefetch_slot_instr <= imem_instr_word;
                         prefetch_slot_pc    <= fetch_req_addr;
                     end
+                    if (fetch_req_cacheable && (ICACHE_ENABLED != 0)) begin
+                        icache_data[icache_fill_index]  <= imem_instr_word;
+                        icache_tag[icache_fill_index]   <= icache_fill_tag;
+                        icache_valid[icache_fill_index] <= 1'b1;
+                    end
+                    fetch_req_cacheable <= 1'b0;
                 end
 
                 if (id_valid && !id_stall && ex_can_accept) begin
