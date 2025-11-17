@@ -25,6 +25,17 @@ module qar_timer #(
     reg [31:0] wdt_load;
     reg [31:0] wdt_counter;
     reg        wdt_enable;
+    reg [31:0] pwm0_period;
+    reg [31:0] pwm0_duty;
+    reg [31:0] pwm1_period;
+    reg [31:0] pwm1_duty;
+    reg [31:0] capture_ctrl;
+    reg [31:0] capture0_value;
+    reg [31:0] capture1_value;
+    reg [31:0] pwm0_counter;
+    reg [31:0] pwm1_counter;
+    reg        pwm0_out;
+    reg        pwm1_out;
 
     reg [31:0] prescale_cnt;
 
@@ -32,7 +43,7 @@ module qar_timer #(
     wire cmp0_auto_reload   = ctrl[1];
     wire cmp1_auto_reload   = ctrl[2];
 
-    assign irq = |(status[2:0] & irq_en[2:0]);
+    assign irq = |(status & irq_en);
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -48,6 +59,17 @@ module qar_timer #(
             wdt_load     <= 32'h0;
             wdt_counter  <= 32'h0;
             wdt_enable   <= 1'b0;
+            pwm0_period  <= 32'h0;
+            pwm0_duty    <= 32'h0;
+            pwm1_period  <= 32'h0;
+            pwm1_duty    <= 32'h0;
+            capture_ctrl <= 32'h0;
+            capture0_value <= 32'h0;
+            capture1_value <= 32'h0;
+            pwm0_counter <= 32'h0;
+            pwm1_counter <= 32'h0;
+            pwm0_out     <= 1'b0;
+            pwm1_out     <= 1'b0;
             prescale_cnt <= 32'h0;
         end else begin
             // Register writes
@@ -80,6 +102,27 @@ module qar_timer #(
                             status[2] <= 1'b0;
                         end
                     end
+                    6'hC: begin
+                        pwm0_period  <= wdata;
+                        pwm0_counter <= 32'h0;
+                    end
+                    6'hD: pwm0_duty <= wdata;
+                    6'hE: begin
+                        pwm1_period  <= wdata;
+                        pwm1_counter <= 32'h0;
+                    end
+                    6'hF: pwm1_duty <= wdata;
+                    6'h11: begin
+                        capture_ctrl <= wdata;
+                        if (wdata[0]) begin
+                            capture0_value <= counter;
+                            status[3] <= 1'b1;
+                        end
+                        if (wdata[1]) begin
+                            capture1_value <= counter;
+                            status[4] <= 1'b1;
+                        end
+                    end
                     default: ;
                 endcase
             end
@@ -107,11 +150,36 @@ module qar_timer #(
                         if (cmp1_auto_reload && cmp1_period != 32'h0)
                             cmp1 <= cmp1 + cmp1_period;
                     end
+
+                    if (pwm0_period != 32'h0) begin
+                        if (pwm0_counter + 1 >= pwm0_period)
+                            pwm0_counter <= 32'h0;
+                        else
+                            pwm0_counter <= pwm0_counter + 1;
+                    end else begin
+                        pwm0_counter <= 32'h0;
+                    end
+
+                    if (pwm1_period != 32'h0) begin
+                        if (pwm1_counter + 1 >= pwm1_period)
+                            pwm1_counter <= 32'h0;
+                        else
+                            pwm1_counter <= pwm1_counter + 1;
+                    end else begin
+                        pwm1_counter <= 32'h0;
+                    end
+
+                    pwm0_out <= (pwm0_period != 32'h0) && (pwm0_counter < pwm0_duty);
+                    pwm1_out <= (pwm1_period != 32'h0) && (pwm1_counter < pwm1_duty);
                 end else begin
                     prescale_cnt <= prescale_cnt + 1;
                 end
             end else begin
                 prescale_cnt <= 32'h0;
+                pwm0_counter <= 32'h0;
+                pwm1_counter <= 32'h0;
+                pwm0_out <= (pwm0_period != 32'h0) && (pwm0_duty != 32'h0);
+                pwm1_out <= (pwm1_period != 32'h0) && (pwm1_duty != 32'h0);
             end
         end
     end
@@ -133,6 +201,14 @@ module qar_timer #(
                 6'h9: rdata = wdt_load;
                 6'hA: rdata = {31'b0, wdt_enable};
                 6'hB: rdata = wdt_counter;
+                6'hC: rdata = pwm0_period;
+                6'hD: rdata = pwm0_duty;
+                6'hE: rdata = pwm1_period;
+                6'hF: rdata = pwm1_duty;
+                6'h10: rdata = {30'b0, pwm1_out, pwm0_out};
+                6'h11: rdata = capture_ctrl;
+                6'h12: rdata = capture0_value;
+                6'h13: rdata = capture1_value;
                 default: rdata = 32'h0;
             endcase
         end

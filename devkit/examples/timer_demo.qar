@@ -42,6 +42,24 @@ wait_wdt:
 
     SW   x7, 0(x1)
     SW   x3, TIMER_STATUS(x5)
+    ADDI x1, x1, 4
+
+    SW   x0, TIMER_CTRL(x5)
+    ADDI x4, x0, 0x64
+    SW   x4, TIMER_COUNTER(x5)
+
+    ADDI x4, x0, 1
+    SW   x4, TIMER_CAPTURE_CTRL(x5)
+    LW   x6, TIMER_CAPTURE0_VALUE(x5)
+    SW   x6, 0(x1)
+    ADDI x1, x1, 4
+
+    ADDI x4, x0, 8
+    SW   x4, TIMER_PWM0_PERIOD(x5)
+    ADDI x4, x0, 4
+    SW   x4, TIMER_PWM0_DUTY(x5)
+    LW   x6, TIMER_PWM_STATUS(x5)
+    SW   x6, 0(x1)
 
 done:
     JAL  x0, done

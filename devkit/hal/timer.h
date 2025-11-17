@@ -19,6 +19,14 @@
 #define QAR_TIMER_WDT_LOAD(base)     QAR_TIMER_REG((base), 0x24)
 #define QAR_TIMER_WDT_CTRL(base)     QAR_TIMER_REG((base), 0x28)
 #define QAR_TIMER_WDT_COUNT(base)    QAR_TIMER_REG((base), 0x2C)
+#define QAR_TIMER_PWM0_PERIOD(base)  QAR_TIMER_REG((base), 0x30)
+#define QAR_TIMER_PWM0_DUTY(base)    QAR_TIMER_REG((base), 0x34)
+#define QAR_TIMER_PWM1_PERIOD(base)  QAR_TIMER_REG((base), 0x38)
+#define QAR_TIMER_PWM1_DUTY(base)    QAR_TIMER_REG((base), 0x3C)
+#define QAR_TIMER_PWM_STATUS(base)   QAR_TIMER_REG((base), 0x40)
+#define QAR_TIMER_CAPTURE_CTRL(base) QAR_TIMER_REG((base), 0x44)
+#define QAR_TIMER_CAPTURE0_VALUE(base) QAR_TIMER_REG((base), 0x48)
+#define QAR_TIMER_CAPTURE1_VALUE(base) QAR_TIMER_REG((base), 0x4C)
 
 #define QAR_TIMER_CTRL_ENABLE      (1u << 0)
 #define QAR_TIMER_CTRL_CMP0_AUTO   (1u << 1)
@@ -27,6 +35,8 @@
 #define QAR_TIMER_STATUS_CMP0      (1u << 0)
 #define QAR_TIMER_STATUS_CMP1      (1u << 1)
 #define QAR_TIMER_STATUS_WDT       (1u << 2)
+#define QAR_TIMER_STATUS_CAPTURE0  (1u << 3)
+#define QAR_TIMER_STATUS_CAPTURE1  (1u << 4)
 
 static inline void qar_timer_init(uint32_t base, uint32_t prescale, uint32_t ctrl_flags)
 {
@@ -75,6 +85,31 @@ static inline void qar_timer_config_wdt(uint32_t base, uint32_t load, int enable
 static inline void qar_timer_kick_wdt(uint32_t base)
 {
     QAR_TIMER_WDT_CTRL(base) = 0x3;
+}
+
+static inline void qar_timer_config_pwm(uint32_t base, uint32_t channel, uint32_t period, uint32_t duty)
+{
+    if (channel == 0) {
+        QAR_TIMER_PWM0_PERIOD(base) = period;
+        QAR_TIMER_PWM0_DUTY(base) = duty;
+    } else {
+        QAR_TIMER_PWM1_PERIOD(base) = period;
+        QAR_TIMER_PWM1_DUTY(base) = duty;
+    }
+}
+
+static inline uint32_t qar_timer_pwm_status(uint32_t base)
+{
+    return QAR_TIMER_PWM_STATUS(base) & 0x3;
+}
+
+static inline uint32_t qar_timer_manual_capture(uint32_t base, uint32_t channel)
+{
+    uint32_t mask = (channel == 0) ? 0x1u : 0x2u;
+    QAR_TIMER_CAPTURE_CTRL(base) = mask;
+    if (channel == 0)
+        return QAR_TIMER_CAPTURE0_VALUE(base);
+    return QAR_TIMER_CAPTURE1_VALUE(base);
 }
 
 #endif /* QAR_HAL_TIMER_H */

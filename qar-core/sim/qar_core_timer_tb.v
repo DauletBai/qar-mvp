@@ -102,12 +102,22 @@ module qar_core_timer_tb();
         #400000;
         $display("DMEM[0] = 0x%08h (expected 0x00000001)", dmem[0]);
         $display("DMEM[1] = 0x%08h (expected 0x00000004)", dmem[1]);
+        $display("DMEM[2] = 0x%08h (expected 0x00000064)", dmem[2]);
+        $display("DMEM[3] = 0x%08h (expected 0x00000001)", dmem[3]);
         if (dmem[0] !== 32'h0000_0001) begin
             $display("ERROR: Timer status mismatch");
             $finish;
         end
         if (dmem[1] !== 32'h0000_0004) begin
             $display("ERROR: Watchdog status mismatch");
+            $finish;
+        end
+        if (dmem[2] !== 32'h0000_0064) begin
+            $display("ERROR: Capture register mismatch");
+            $finish;
+        end
+        if (dmem[3] !== 32'h0000_0001) begin
+            $display("ERROR: PWM status mismatch");
             $finish;
         end
         $display("Timer demo completed.");
