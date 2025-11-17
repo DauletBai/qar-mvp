@@ -15,6 +15,7 @@ iverilog -o qar_core_gpio_tb.out \
     qar-core/rtl/alu.v \
     qar-core/rtl/gpio.v \
     qar-core/rtl/uart.v \
+    qar-core/rtl/can.v \
     qar-core/rtl/qar_core.v \
     qar-core/sim/qar_core_gpio_tb.v
 

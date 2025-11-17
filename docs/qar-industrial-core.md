@@ -72,7 +72,7 @@ This document captures the definition of the “universal industrial computer”
      | GPIO  | 0x4000_0000  | DIR, OUT, IN, INT_EN/STATUS |  
      | UART0 (RS-232) | 0x4000_1000 | TX/RX, baud config |  
      | UART1 (RS-485) | 0x4000_2000 | Includes DE/RE control |  
-     | CAN0  | 0x4000_3000  | Mailboxes, filters |  
+     | CAN0  | 0x4000_3000  | Mailboxes, filters (`peripherals/can.md`) |  
      | I2C/SPI shared | 0x4000_4000 | Simple master mode |  
      | Timer/PWM block | 0x4000_5000 | 4 timers with compare/PWM |  
      | Watchdog | 0x4000_6000 | Window + reset control |  
