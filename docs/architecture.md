@@ -142,6 +142,7 @@ The next iteration targets synthesis-grade behavior and deeper verification:
 3. **Verification expansion:** push SymbiYosys coverage down into the ALU/decoder, add CSR/interrupt assertions, and wire deterministic + random + formal runs into CI.
 4. **Tooling/packaging:** grow DevKit with additional examples (e.g., IRQ-driven memcpy), package the Go CLI as a binary release, and document contribution/onboarding steps.
 5. **Memory hierarchy:** refer to `docs/memory-hierarchy-plan.md` for the detailed I/D cache roadmap that underpins the v0.7/v1.0 CPU milestone.
+6. **Industrial Compute Platform:** see `docs/qar-industrial-core.md` for the product-level requirements (peripherals, power, SDK) driving the next integration steps beyond the CPU.
 
 ---
 
