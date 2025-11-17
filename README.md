@@ -154,6 +154,12 @@ It also exercises the manual capture registers and PWM outputs so integrators ca
 ```
 Builds the `spi_loopback` program and runs a testbench that loops MOSI back into MISO, proving that the new SPI master’s TX/RX FIFOs, chip-select handling, and polling interface work end-to-end by checking the received bytes in DMEM.
 
+## I2C Loopback Demo
+```sh
+./scripts/run_i2c.sh
+```
+Builds the `i2c_loopback` firmware and runs a testbench that ties the controller’s SDA output back into its input. The program issues a START followed by two writes and a STOP, then stores the resulting STATUS word into DMEM to verify the new I2C master registers and FIFOs.
+
 ## CAN Loopback Demo
 ```sh
 ./scripts/run_can.sh

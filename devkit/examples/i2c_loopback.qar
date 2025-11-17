@@ -1,0 +1,55 @@
+.include "common.inc"
+
+    LUI  x5, I2C_BASE_HI
+    ADDI x5, x5, I2C_BASE_LO
+
+    ADDI x1, x0, 0        # DMEM pointer
+
+    ADDI x6, x0, 0x1      # enable controller
+    SW   x6, I2C_CTRL(x5)
+
+    ADDI x6, x0, 10
+    SW   x6, I2C_CLKDIV(x5)
+
+    ADDI x7, x0, 0xA0
+    SW   x7, I2C_TXDATA(x5)
+
+    ADDI x7, x0, 0x55
+    SW   x7, I2C_TXDATA(x5)
+
+    ADDI x8, x0, 1        # START
+    SW   x8, I2C_CMD(x5)
+
+wait_start_clear:
+    LW   x9, I2C_CMD(x5)
+    AND  x10, x9, x8
+    BNE  x10, x0, wait_start_clear
+
+    ADDI x8, x0, 4        # WRITE
+    SW   x8, I2C_CMD(x5)
+
+wait_write0:
+    LW   x9, I2C_CMD(x5)
+    AND  x10, x9, x8
+    BNE  x10, x0, wait_write0
+
+    SW   x8, I2C_CMD(x5)  # second write
+
+wait_write1:
+    LW   x9, I2C_CMD(x5)
+    AND  x10, x9, x8
+    BNE  x10, x0, wait_write1
+
+    ADDI x8, x0, 2        # STOP
+    SW   x8, I2C_CMD(x5)
+
+wait_stop:
+    LW   x9, I2C_CMD(x5)
+    AND  x10, x9, x8
+    BNE  x10, x0, wait_stop
+
+    LW   x11, I2C_STATUS(x5)
+    SW   x11, 0(x1)
+
+done:
+    JAL  x0, done

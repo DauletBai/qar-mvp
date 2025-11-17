@@ -43,6 +43,10 @@ module qar_core_exec_tb();
     wire        spi_mosi;
     wire        spi_miso = 1'b1;
     wire [3:0]  spi_cs_n;
+    wire        i2c_scl;
+    wire        i2c_sda_out;
+    wire        i2c_sda_oe;
+    wire        i2c_sda_loop;
     reg         irq_timer_ack_q = 0;
     reg         irq_external_ack_q = 0;
     integer     timer_ack_count = 0;
@@ -81,8 +85,14 @@ module qar_core_exec_tb();
         .spi_sck(spi_sck),
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso),
-        .spi_cs_n(spi_cs_n)
+        .spi_cs_n(spi_cs_n),
+        .i2c_scl(i2c_scl),
+        .i2c_sda_out(i2c_sda_out),
+        .i2c_sda_in(i2c_sda_loop),
+        .i2c_sda_oe(i2c_sda_oe)
     );
+
+    assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
 
     reg [31:0] imem [0:IMEM_WORDS-1];
     reg [31:0] dmem [0:DMEM_WORDS-1];

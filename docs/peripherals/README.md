@@ -5,4 +5,4 @@ Industrial Peripheral Documentation
 - [CAN](can.md)
 - [Timer / Watchdog](timer.md)
 - [SPI Master (draft)](spi.md)
-- [I²C / SMBus Master (draft)](i2c.md)
+- [I²C / SMBus Master](i2c.md)

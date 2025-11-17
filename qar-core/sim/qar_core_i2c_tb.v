@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
-module qar_core_cache_tb();
+module qar_core_i2c_tb();
 
-    localparam IMEM_WORDS      = 64;
-    localparam DMEM_WORDS      = 64;
+    localparam IMEM_WORDS = 64;
+    localparam DMEM_WORDS = 64;
     localparam IMEM_ADDR_WIDTH = 6;
     localparam DMEM_ADDR_WIDTH = 6;
 
@@ -34,19 +34,21 @@ module qar_core_cache_tb();
     wire        uart_re;
     wire        spi_sck;
     wire        spi_mosi;
-    wire        spi_miso = 1'b1;
+    wire        spi_miso;
     wire [3:0]  spi_cs_n;
     wire        i2c_scl;
     wire        i2c_sda_out;
     wire        i2c_sda_oe;
     wire        i2c_sda_loop;
 
+    assign spi_miso = spi_mosi;
+    assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
+
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
         .DMEM_DEPTH(DMEM_WORDS),
         .USE_INTERNAL_IMEM(0),
-        .USE_INTERNAL_DMEM(0),
-        .ICACHE_ENTRIES(8)
+        .USE_INTERNAL_DMEM(0)
     ) uut (
         .clk(clk),
         .rst_n(rst_n),
@@ -82,20 +84,15 @@ module qar_core_cache_tb();
         .i2c_sda_oe(i2c_sda_oe)
     );
 
-    assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
-
     reg [31:0] imem [0:IMEM_WORDS-1];
     reg [31:0] dmem [0:DMEM_WORDS-1];
 
-    integer imem_req_count;
-
     initial begin
-        $display("=== QAR-Core cache regression === (ICACHE entries = %0d)", uut.ICACHE_ENTRIES);
-        $readmemh("program_cache.hex", imem);
-        $readmemh("data_cache.hex", dmem);
+        $display("=== QAR-Core I2C Loopback Demo ===");
+        $readmemh("program_i2c.hex", imem);
+        $readmemh("data_i2c.hex", dmem);
         imem_ready = 0;
         mem_ready  = 0;
-        imem_req_count = 0;
         rst_n = 0;
         #40;
         rst_n = 1;
@@ -116,26 +113,18 @@ module qar_core_cache_tb();
     end
 
     always @(posedge clk) begin
-        if (!rst_n)
-            imem_req_count <= 0;
-        else if (imem_valid && imem_ready)
-            imem_req_count <= imem_req_count + 1;
-
         if (mem_valid && mem_we)
             dmem[mem_addr[DMEM_ADDR_WIDTH+1:2]] <= mem_wdata;
     end
 
     initial begin
-        #20000;
-        $display("Register x1 = %0d (expected > 0)", uut.rf_inst.regs[1]);
-        if (uut.rf_inst.regs[1] == 32'd0) begin
-            $display("ERROR: cache-loop program did not execute");
+        #400000;
+        $display("DMEM[0] = 0x%08h (expected 0x00000064)", dmem[0]);
+        if (dmem[0] !== 32'h0000_0064) begin
+            $display("ERROR: I2C status mismatch");
             $finish;
         end
-
-        $display("IMEM request count = %0d (cache valids %0d %0d %0d %0d)", imem_req_count, uut.icache_valid[0], uut.icache_valid[1], uut.icache_valid[2], uut.icache_valid[3]);
-
-        $display("Cache regression completed.");
+        $display("I2C demo completed.");
         $finish;
     end
 

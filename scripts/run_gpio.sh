@@ -21,6 +21,7 @@ iverilog -o qar_core_gpio_tb.out \
     qar-core/rtl/gpio.v \
     qar-core/rtl/uart.v \
     qar-core/rtl/spi.v \
+    qar-core/rtl/i2c.v \
     qar-core/rtl/can.v \
     qar-core/rtl/timer.v \
     qar-core/rtl/qar_core.v \

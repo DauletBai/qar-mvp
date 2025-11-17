@@ -36,8 +36,13 @@ module qar_core_spi_tb();
     wire        spi_mosi;
     wire        spi_miso;
     wire [3:0]  spi_cs_n;
+    wire        i2c_scl;
+    wire        i2c_sda_out;
+    wire        i2c_sda_oe;
+    wire        i2c_sda_loop;
 
     assign spi_miso = spi_mosi;
+    assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -72,7 +77,11 @@ module qar_core_spi_tb();
         .spi_sck(spi_sck),
         .spi_mosi(spi_mosi),
         .spi_miso(spi_miso),
-        .spi_cs_n(spi_cs_n)
+        .spi_cs_n(spi_cs_n),
+        .i2c_scl(i2c_scl),
+        .i2c_sda_out(i2c_sda_out),
+        .i2c_sda_in(i2c_sda_loop),
+        .i2c_sda_oe(i2c_sda_oe)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];
