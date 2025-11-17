@@ -1,22 +1,21 @@
 .include "common.inc"
 
-    # Set lower 8 GPIO pins to output
+    # Configure lower 8 pins as output, bit 8 as input
     LUI  x5, GPIO_BASE_HI
     ADDI x5, x5, GPIO_BASE_LO
-    LUI  x6, 0
-    ADDI x6, x6, 0x00FF
+    ADDI x6, x0, 0x00FF
     SW   x6, GPIO_DIR(x5)
 
-    ADDI x7, x0, 0
-blink_loop:
-    SW   x7, GPIO_OUT(x5)
-    JAL  x1, delay
-    ADDI x7, x7, 1
-    JAL  x0, blink_loop
+    # Enable interrupt for bit 8
+    ADDI x7, x0, 0x100
+    SW   x7, GPIO_IRQ_EN(x5)
 
-delay:
-    ADDI x10, x0, 0x400
-delay_loop:
-    ADDI x10, x10, -1
-    BNE  x10, x0, delay_loop
-    JALR x0, x1, 0
+wait_irq:
+    LW   x8, GPIO_IRQ_STATUS(x5)
+    AND  x9, x8, x7
+    BEQ  x9, x0, wait_irq
+
+    # Store IRQ status to DMEM[1]
+    SW   x8, 4(x0)
+    SW   x7, GPIO_IRQ_STATUS(x5)
+    JAL  x0, wait_irq

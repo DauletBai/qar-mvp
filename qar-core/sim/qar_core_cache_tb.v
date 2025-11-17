@@ -27,6 +27,7 @@ module qar_core_cache_tb();
     wire [31:0] gpio_out;
     wire [31:0] gpio_dir;
     wire [31:0] gpio_in = 32'b0;
+    wire        gpio_irq;
     wire        uart_tx;
     reg         uart_rx = 1'b1;
     wire        uart_de;
@@ -58,6 +59,7 @@ module qar_core_cache_tb();
         .gpio_in(gpio_in),
         .gpio_out(gpio_out),
         .gpio_dir(gpio_dir),
+        .gpio_irq(gpio_irq),
         .uart_tx(uart_tx),
         .uart_rx(uart_rx),
         .uart_de(uart_de),

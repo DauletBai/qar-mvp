@@ -42,6 +42,7 @@ module qar_core #(
     input  wire [31:0] gpio_in,
     output wire [31:0] gpio_out,
     output wire [31:0] gpio_dir,
+    output wire        gpio_irq,
 
     // UART interface
     output wire        uart_tx,
@@ -270,7 +271,8 @@ module qar_core #(
         .rdata    (gpio_read_data),
         .gpio_in  (gpio_in),
         .gpio_out (gpio_out),
-        .gpio_dir (gpio_dir)
+        .gpio_dir (gpio_dir),
+        .irq      (gpio_irq)
     );
 
     qar_uart uart0 (
@@ -753,7 +755,7 @@ module qar_core #(
     // Interrupt detection
     // ------------------------------------------------------------
     wire timer_trigger_level = ((csr_mtime >= csr_mtimecmp) || irq_timer);
-    wire external_trigger_level = irq_external | uart0_irq | can0_irq;
+    wire external_trigger_level = irq_external | uart0_irq | can0_irq | gpio_irq;
     wire timer_pending   = csr_mip[7];
     wire external_pending= csr_mip[11];
     

@@ -133,7 +133,7 @@ This builds and runs the `irq_demo` program, checking timer/external interrupts 
 ```sh
 ./scripts/run_gpio.sh
 ```
-Builds the `gpio_demo` program and runs a dedicated testbench that drives the new memory-mapped GPIO peripheral, showing how industrial firmware can toggle output lines.
+Builds the `gpio_demo` program and runs a dedicated testbench that now showcases interrupt-enabled GPIO inputs: the firmware enables bit-8 interrupt, polls `IRQ_STATUS`, and stores the latched value when the testbench toggles an input.
 
 ## CAN Loopback Demo
 ```sh

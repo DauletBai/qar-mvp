@@ -11,8 +11,10 @@ The GPIO block is memory-mapped starting at `0x4000_0000` (see `devkit/examples/
 | 0x08   | IN           | Input readback (read-only).            |
 | 0x0C   | OUT_SET      | Writing 1 bits sets corresponding OUT bits. |
 | 0x10   | OUT_CLR      | Writing 1 bits clears corresponding OUT bits. |
+| 0x14   | IRQ_EN       | Interrupt enable mask (one bit per GPIO). |
+| 0x18   | IRQ_STATUS   | Interrupt status (write-1-to-clear). |
 
-All registers are 32-bit. Writing to reserved addresses has no effect.
+All registers are 32-bit. When an input pin (DIR=0) transitions from low to high, its bit is set in `IRQ_STATUS`. If the same bit in `IRQ_EN` is 1, the GPIO block asserts its IRQ output (wired into the SoC external interrupt). Firmware clears latched bits by writing 1's to `IRQ_STATUS`.
 
 ## Usage Example (Assembly)
 
@@ -22,16 +24,23 @@ All registers are 32-bit. Writing to reserved addresses has no effect.
     LUI  x5, GPIO_BASE_HI
     ADDI x5, x5, GPIO_BASE_LO
 
-    # Configure pins 0-7 as outputs
+    # Configure pins 0-7 as outputs, bit 8 input
     ADDI x6, x0, 0x00FF
     SW   x6, GPIO_DIR(x5)
 
-toggle_loop:
-    SW   x6, GPIO_OUT(x5)
-    JAL  x1, short_delay
-    SW   x0, GPIO_OUT(x5)   # clear outputs
-    JAL  x1, short_delay
-    JAL  x0, toggle_loop
+    # Enable interrupt for bit 8
+    ADDI x7, x0, 1
+    SLLI x7, x7, 8
+    SW   x7, GPIO_IRQ_EN(x5)
+
+wait_irq:
+    LW   x8, GPIO_IRQ_STATUS(x5)
+    AND  x9, x8, x7
+    BEQ  x9, x0, wait_irq
+
+    SW   x8, 4(x0)           # store status to DMEM
+    SW   x7, GPIO_IRQ_STATUS(x5)
+    JAL  x0, wait_irq
 ```
 
-See `devkit/examples/gpio_demo.qar` and `scripts/run_gpio.sh` for a runnable regression that blinks the outputs inside simulation.
+See `devkit/examples/gpio_demo.qar` and `scripts/run_gpio.sh` for a runnable regression that demonstrates interrupt-enabled GPIO inputs inside simulation.

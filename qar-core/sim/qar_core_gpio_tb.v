@@ -31,6 +31,7 @@ module qar_core_gpio_tb();
     reg         uart_rx = 1'b1;
     wire        uart_de;
     wire        uart_re;
+    wire        gpio_irq;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -57,6 +58,7 @@ module qar_core_gpio_tb();
         .gpio_in(gpio_in),
         .gpio_out(gpio_out),
         .gpio_dir(gpio_dir),
+        .gpio_irq(gpio_irq),
         .uart_tx(uart_tx),
         .uart_rx(uart_rx),
         .uart_de(uart_de),
@@ -98,16 +100,26 @@ module qar_core_gpio_tb();
     end
 
     initial begin
+        gpio_in = 32'h0;
+        #100000;
+        gpio_in[8] = 1'b1;
+        #1000;
+        gpio_in[8] = 1'b0;
+    end
+
+    initial begin
         #200000;
-        $display("GPIO dir = 0x%08h, out sample = 0x%08h", gpio_dir, gpio_out);
+        $display("GPIO dir = 0x%08h", gpio_dir);
         if (gpio_dir !== 32'h0000_00FF) begin
             $display("ERROR: GPIO direction mismatch");
             $finish;
         end
-        if (gpio_out === 32'b0) begin
-            $display("ERROR: GPIO outputs did not toggle");
+        $display("DMEM[1] = 0x%08h (expected 0x00000100)", dmem[1]);
+        if (dmem[1] !== 32'h0000_0100) begin
+            $display("ERROR: GPIO interrupt status mismatch");
             $finish;
         end
+
         $display("GPIO demo completed.");
         $finish;
     end
