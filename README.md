@@ -129,6 +129,12 @@ ALU Test
 ```
 This builds and runs the `irq_demo` program, checking timer/external interrupts plus ECALL/MRET flow.
 
+## GPIO Demonstration
+```sh
+./scripts/run_gpio.sh
+```
+Builds the `gpio_demo` program and runs a dedicated testbench that drives the new memory-mapped GPIO peripheral, showing how industrial firmware can toggle output lines.
+
 ## Randomized Load/Store Regression
 ```sh
 ./scripts/run_random.sh

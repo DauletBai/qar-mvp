@@ -76,6 +76,7 @@ This document captures the definition of the “universal industrial computer”
      | I2C/SPI shared | 0x4000_4000 | Simple master mode |  
      | Timer/PWM block | 0x4000_5000 | 4 timers with compare/PWM |  
      | Watchdog | 0x4000_6000 | Window + reset control |  
+   - Individual peripheral documentation lives under `docs/peripherals/` (see [`peripherals/gpio.md`](peripherals/gpio.md) for the GPIO register map).
    - Hook up to QAR-Core via memory-mapped registers and IRQ lines (GPIO, UART, CAN, timers).
 2. Board:
    - Use affordable FPGA (e.g., Lattice ECP5 or Intel MAX10).  

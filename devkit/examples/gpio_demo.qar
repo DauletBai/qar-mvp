@@ -1,0 +1,22 @@
+.include "common.inc"
+
+    # Set lower 8 GPIO pins to output
+    LUI  x5, GPIO_BASE_HI
+    ADDI x5, x5, GPIO_BASE_LO
+    LUI  x6, 0
+    ADDI x6, x6, 0x00FF
+    SW   x6, GPIO_DIR(x5)
+
+    ADDI x7, x0, 0
+blink_loop:
+    SW   x7, GPIO_OUT(x5)
+    JAL  x1, delay
+    ADDI x7, x7, 1
+    JAL  x0, blink_loop
+
+delay:
+    ADDI x10, x0, 0x400
+delay_loop:
+    ADDI x10, x10, -1
+    BNE  x10, x0, delay_loop
+    JALR x0, x1, 0
