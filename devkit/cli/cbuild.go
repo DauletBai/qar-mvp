@@ -24,9 +24,11 @@ func buildFromC(cfg *buildConfig) error {
 	args := []string{
 		"-Os",
 		"-nostdlib",
+		"-nostartfiles",
 		"-march=rv32i",
 		"-mabi=ilp32",
 		"-T", "devkit/cli/linker.ld",
+		"devkit/sdk/crt0.S",
 		"-I", "devkit",
 		cfg.cPath,
 		"-o", elfPath,
