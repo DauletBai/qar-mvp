@@ -28,6 +28,7 @@ This document tracks the plan and seeds the first C sample.
 - `devkit/examples/c/lin_auto_header.c` drives the UART HAL’s LIN auto-break/auto-header path so firmware can issue LIN master headers without manual byte-by-byte assembly.
 - `devkit/examples/c/timer_pwm_demo.c` routes timer PWM outputs onto GPIO pins 0/1, sweeps duty cycles, and samples capture registers for diagnostics.
 - `devkit/examples/c/i2c_loopback.c` mirrors the assembly loopback test by issuing START/WRITE/STOP sequences entirely via the I²C HAL.
+- `devkit/examples/c/spi_loopback.c` performs two byte exchanges using the SPI HAL’s loopback mode.
 
 Example snippet from the GPIO demo:
 

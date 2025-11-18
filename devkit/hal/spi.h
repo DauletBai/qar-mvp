@@ -21,6 +21,7 @@
 #define QAR_SPI_CTRL_CPOL      (1u << 1)
 #define QAR_SPI_CTRL_CPHA      (1u << 2)
 #define QAR_SPI_CTRL_LSB_FIRST (1u << 3)
+#define QAR_SPI_CTRL_LOOPBACK  (1u << 4)
 
 #define QAR_SPI_STATUS_TX_READY (1u << 0)
 #define QAR_SPI_STATUS_RX_VALID (1u << 1)
