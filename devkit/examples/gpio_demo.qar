@@ -6,16 +6,25 @@
     ADDI x6, x0, 0x00FF
     SW   x6, GPIO_DIR(x5)
 
-    # Enable interrupt for bit 8
+    # Enable interrupt + rising/falling detection for bit 8
     ADDI x7, x0, 0x100
     SW   x7, GPIO_IRQ_EN(x5)
+    SW   x7, GPIO_IRQ_RISE(x5)
+    SW   x7, GPIO_IRQ_FALL(x5)
+
+    # Enable debounce on bit 8 with ~64-cycle filter
+    SW   x7, GPIO_DB_EN(x5)
+    ADDI x10, x0, 64
+    SW   x10, GPIO_DB_CYCLES(x5)
 
 wait_irq:
     LW   x8, GPIO_IRQ_STATUS(x5)
     AND  x9, x8, x7
     BEQ  x9, x0, wait_irq
 
-    # Store IRQ status to DMEM[1]
+    # Store IRQ status + filtered input snapshot
     SW   x8, 4(x0)
+    LW   x11, GPIO_IN(x5)
+    SW   x11, 8(x0)
     SW   x7, GPIO_IRQ_STATUS(x5)
     JAL  x0, wait_irq

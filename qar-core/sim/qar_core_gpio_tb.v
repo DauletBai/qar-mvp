@@ -142,6 +142,12 @@ module qar_core_gpio_tb();
             $finish;
         end
 
+        $display("DMEM[2] = 0x%08h (expected filtered snapshot 0x00000000)", dmem[2]);
+        if (dmem[2] !== 32'h0000_0000) begin
+            $display("ERROR: GPIO filtered input mismatch");
+            $finish;
+        end
+
         $display("GPIO demo completed.");
         $finish;
     end
