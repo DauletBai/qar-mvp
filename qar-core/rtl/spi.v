@@ -37,7 +37,9 @@ module qar_spi #(
     reg [31:0] irq_status;
     reg [3:0]  cs_active;
     reg [3:0]  cs_auto_count;
-    reg        fault_flag;
+    reg        tx_overflow_flag;
+    reg        rx_overflow_flag;
+    reg        cs_error_flag;
 
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
     reg [7:0]  tx_fifo [0:FIFO_DEPTH-1];
@@ -71,10 +73,11 @@ module qar_spi #(
 
     wire tx_ready = !tx_fifo_full;
     wire rx_ready = !rx_fifo_empty;
+    wire fault_flag = tx_overflow_flag | rx_overflow_flag | cs_error_flag;
 
-    wire [31:0] status_value = {28'b0, fault_flag, busy, rx_ready, tx_ready};
+    wire [31:0] status_value = {25'b0, cs_error_flag, rx_overflow_flag, tx_overflow_flag, fault_flag, busy, rx_ready, tx_ready};
 
-    assign irq = |(irq_en[2:0] & irq_status[2:0]);
+    assign irq = |(irq_en[5:0] & irq_status[5:0]);
 
     wire sample_bit_comb = ctrl_loopback ? (ctrl_lsb ? tx_shift[0] : tx_shift[7]) : spi_miso;
     wire [7:0] rx_shift_combined = ctrl_lsb ?
@@ -90,7 +93,9 @@ module qar_spi #(
             irq_en     <= 32'h0;
             irq_status <= 32'h0;
             cs_active  <= 4'b0000;
-            fault_flag <= 1'b0;
+            tx_overflow_flag <= 1'b0;
+            rx_overflow_flag <= 1'b0;
+            cs_error_flag <= 1'b0;
             tx_head    <= 0;
             tx_tail    <= 0;
             rx_head    <= 0;
@@ -114,8 +119,17 @@ module qar_spi #(
                     6'h6: irq_en <= wdata;
                     6'h7: begin
                         irq_status <= irq_status & ~wdata;
-                        if (wdata[2])
-                            fault_flag <= 1'b0;
+                        if (wdata[2]) begin
+                            tx_overflow_flag <= 1'b0;
+                            rx_overflow_flag <= 1'b0;
+                            cs_error_flag <= 1'b0;
+                        end
+                        if (wdata[3])
+                            tx_overflow_flag <= 1'b0;
+                        if (wdata[4])
+                            rx_overflow_flag <= 1'b0;
+                        if (wdata[5])
+                            cs_error_flag <= 1'b0;
                     end
                     6'h3: begin
                         if (!tx_fifo_full) begin
@@ -123,8 +137,9 @@ module qar_spi #(
                             tx_head <= tx_head + 1;
                             irq_status[1] <= 1'b0;
                         end else begin
-                            fault_flag <= 1'b1;
+                            tx_overflow_flag <= 1'b1;
                             irq_status[2] <= 1'b1;
+                            irq_status[3] <= 1'b1;
                         end
                     end
                     default: ;
@@ -141,8 +156,9 @@ module qar_spi #(
             // Start transfer
             if (!busy && ctrl_enable && !tx_fifo_empty) begin
                 if (cs_select[3:0] == 4'b0000) begin
-                    fault_flag <= 1'b1;
+                    cs_error_flag <= 1'b1;
                     irq_status[2] <= 1'b1;
+                    irq_status[5] <= 1'b1;
                 end else begin
                     busy      <= 1'b1;
                     cs_active <= cs_select[3:0];
@@ -177,8 +193,9 @@ module qar_spi #(
                                 rx_head <= rx_head + 1;
                                 irq_status[0] <= 1'b1;
                             end else begin
-                                fault_flag <= 1'b1;
+                                rx_overflow_flag <= 1'b1;
                                 irq_status[2] <= 1'b1;
+                                irq_status[4] <= 1'b1;
                             end
                         end else begin
                             bit_index <= bit_index - 1;

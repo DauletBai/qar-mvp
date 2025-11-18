@@ -115,6 +115,18 @@ module qar_core_lin_tb();
             $display("ERROR: LIN break flag not set");
             $finish;
         end
+        if (dmem[1] !== 32'h00003C55) begin
+            $display("ERROR: LIN header mismatch (got %08h)", dmem[1]);
+            $finish;
+        end
+        if (dmem[2] !== 32'h0000_0055) begin
+            $display("ERROR: LIN payload0 mismatch (got %08h)", dmem[2]);
+            $finish;
+        end
+        if (dmem[3] !== 32'h0000_00AA) begin
+            $display("ERROR: LIN payload1 mismatch (got %08h)", dmem[3]);
+            $finish;
+        end
         $display("LIN demo completed.");
         $finish;
     end

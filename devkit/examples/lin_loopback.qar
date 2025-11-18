@@ -13,6 +13,8 @@
     SW   x6, UART_LIN_CMD(x5)
 
     ADDI x7, x0, 0x80      # mask for break detected
+    ADDI x13, x0, 0x100    # header-ready mask
+    ADDI x14, x0, 1        # RX ready mask
 
 wait_break:
     LW   x8, UART_STATUS(x5)
@@ -22,6 +24,45 @@ wait_break:
     SW   x8, 0(x0)         # store status at DMEM[0]
 
     ADDI x6, x0, 2         # clear break flag
+    SW   x6, UART_LIN_CMD(x5)
+
+    ADDI x6, x0, 0x55
+    SW   x6, UART_DATA(x5)
+
+    ADDI x6, x0, 0x3C
+    SW   x6, UART_DATA(x5)
+
+wait_header:
+    LW   x10, UART_STATUS(x5)
+    AND  x11, x10, x13
+    BEQ  x11, x0, wait_header
+
+    LW   x12, UART_LIN_HEADER(x5)
+    SW   x12, 4(x0)
+
+    ADDI x6, x0, 0x55
+    SW   x6, UART_DATA(x5)
+
+    ADDI x6, x0, 0xAA
+    SW   x6, UART_DATA(x5)
+
+wait_rx_payload0:
+    LW   x10, UART_STATUS(x5)
+    AND   x11, x10, x14
+    BEQ  x11, x0, wait_rx_payload0
+
+    LW   x12, UART_DATA(x5)
+    SW   x12, 8(x0)
+
+wait_rx_payload1:
+    LW   x10, UART_STATUS(x5)
+    AND   x11, x10, x14
+    BEQ  x11, x0, wait_rx_payload1
+
+    LW   x12, UART_DATA(x5)
+    SW   x12, 12(x0)
+
+    ADDI x6, x0, 2
     SW   x6, UART_LIN_CMD(x5)
 
 done:

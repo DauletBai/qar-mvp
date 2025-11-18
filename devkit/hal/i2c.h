@@ -18,10 +18,19 @@
 
 #define QAR_I2C_CTRL_ENABLE    (1u << 0)
 
-#define QAR_I2C_STATUS_BUSY    (1u << 0)
-#define QAR_I2C_STATUS_RX_RDY  (1u << 1)
-#define QAR_I2C_STATUS_TX_EMPTY (1u << 2)
-#define QAR_I2C_STATUS_FAULT   (1u << 3)
+#define QAR_I2C_STATUS_BUSY      (1u << 0)
+#define QAR_I2C_STATUS_RX_RDY    (1u << 1)
+#define QAR_I2C_STATUS_TX_EMPTY  (1u << 2)
+#define QAR_I2C_STATUS_FAULT     (1u << 3)
+#define QAR_I2C_STATUS_RX_OVF    (1u << 4)
+#define QAR_I2C_STATUS_TX_OVF    (1u << 5)
+
+#define QAR_I2C_IRQ_RX_READY   (1u << 0)
+#define QAR_I2C_IRQ_TX_EMPTY   (1u << 1)
+#define QAR_I2C_IRQ_FAULT      (1u << 2)
+#define QAR_I2C_IRQ_TX_OVF     (1u << 3)
+#define QAR_I2C_IRQ_RX_OVF     (1u << 4)
+#define QAR_I2C_IRQ_NACK       (1u << 5)
 
 #define QAR_I2C_CMD_START      (1u << 0)
 #define QAR_I2C_CMD_STOP       (1u << 1)

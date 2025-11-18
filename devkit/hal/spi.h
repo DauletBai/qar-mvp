@@ -24,6 +24,17 @@
 #define QAR_SPI_STATUS_TX_READY (1u << 0)
 #define QAR_SPI_STATUS_RX_VALID (1u << 1)
 #define QAR_SPI_STATUS_BUSY     (1u << 2)
+#define QAR_SPI_STATUS_FAULT    (1u << 3)
+#define QAR_SPI_STATUS_TX_OVF   (1u << 4)
+#define QAR_SPI_STATUS_RX_OVF   (1u << 5)
+#define QAR_SPI_STATUS_CS_FAULT (1u << 6)
+
+#define QAR_SPI_IRQ_RX_READY    (1u << 0)
+#define QAR_SPI_IRQ_TX_EMPTY    (1u << 1)
+#define QAR_SPI_IRQ_FAULT       (1u << 2)
+#define QAR_SPI_IRQ_TX_OVF      (1u << 3)
+#define QAR_SPI_IRQ_RX_OVF      (1u << 4)
+#define QAR_SPI_IRQ_CS_FAULT    (1u << 5)
 
 static inline void qar_spi_init(uint32_t base, uint32_t clk_div, uint32_t ctrl_flags)
 {

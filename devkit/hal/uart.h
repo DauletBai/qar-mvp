@@ -18,6 +18,7 @@
 #define QAR_UART_IDLE_CFG(base)   QAR_UART_REG((base), 0x1C)
 #define QAR_UART_LIN_CTRL(base)   QAR_UART_REG((base), 0x20)
 #define QAR_UART_LIN_CMD(base)    QAR_UART_REG((base), 0x24)
+#define QAR_UART_LIN_HEADER(base) QAR_UART_REG((base), 0x28)
 
 #define QAR_UART_CTRL_ENABLE     (1u << 0)
 #define QAR_UART_CTRL_PARITY_EN  (1u << 1)
@@ -31,12 +32,16 @@
 #define QAR_UART_STATUS_TX_BUSY  (1u << 4)
 #define QAR_UART_STATUS_PARITY   (1u << 5)
 #define QAR_UART_STATUS_IDLE     (1u << 6)
+#define QAR_UART_STATUS_LIN_BREAK  (1u << 7)
+#define QAR_UART_STATUS_LIN_HEADER (1u << 8)
+#define QAR_UART_STATUS_LIN_SYNCERR (1u << 9)
 
 #define QAR_UART_IRQ_RX_READY    (1u << 0)
 #define QAR_UART_IRQ_TX_EMPTY    (1u << 1)
 #define QAR_UART_IRQ_ERROR       (1u << 2)
 #define QAR_UART_IRQ_IDLE        (1u << 3)
 #define QAR_UART_IRQ_LIN_BREAK   (1u << 4)
+#define QAR_UART_IRQ_LIN_HEADER  (1u << 5)
 
 static inline void qar_uart_init(uint32_t base, uint32_t baud_divider, uint32_t ctrl_flags)
 {
@@ -85,6 +90,16 @@ static inline void qar_uart_lin_request_break(uint32_t base)
 static inline void qar_uart_lin_clear_break(uint32_t base)
 {
     QAR_UART_LIN_CMD(base) = 0x2;
+}
+
+static inline void qar_uart_lin_arm_header(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x4;
+}
+
+static inline uint32_t qar_uart_lin_header(uint32_t base)
+{
+    return QAR_UART_LIN_HEADER(base);
 }
 
 static inline uint32_t qar_uart_status(uint32_t base)

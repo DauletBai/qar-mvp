@@ -32,10 +32,12 @@ module qar_i2c #(
 
     reg [31:0] ctrl;
     reg [31:0] clkdiv;
-    reg [31:0] status;
     reg [31:0] irq_en;
     reg [31:0] irq_status;
     reg [31:0] cmd_reg;
+    reg        ack_error_flag;
+    reg        rx_overflow_flag;
+    reg        tx_overflow_flag;
 
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
@@ -69,16 +71,24 @@ module qar_i2c #(
     wire ctrl_enable   = ctrl[0];
     wire ctrl_loopback = ctrl[4];
 
-    assign irq = |(irq_en & irq_status);
+    assign irq = |(irq_en[5:0] & irq_status[5:0]);
+
+    wire busy_flag    = (state != STATE_IDLE);
+    wire rx_ready_flag = (rx_head != rx_tail);
+    wire tx_empty_flag = (tx_head == tx_tail);
+
+    wire [31:0] status_value = {26'b0, tx_overflow_flag, rx_overflow_flag, ack_error_flag, tx_empty_flag, rx_ready_flag, busy_flag};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             ctrl        <= 32'h1;
             clkdiv      <= 32'd100;
-            status      <= 32'h0;
             irq_en      <= 32'h0;
             irq_status  <= 32'h0;
             cmd_reg     <= 32'h0;
+            ack_error_flag <= 1'b0;
+            rx_overflow_flag <= 1'b0;
+            tx_overflow_flag <= 1'b0;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
@@ -96,17 +106,37 @@ module qar_i2c #(
                     6'h0: ctrl <= wdata;
                     6'h1: clkdiv <= wdata;
                     6'h2: begin
-                        status <= status & ~wdata;
                         if (wdata[3])
-                            irq_status[2] <= 1'b0;
+                            ack_error_flag <= 1'b0;
+                        if (wdata[4])
+                            rx_overflow_flag <= 1'b0;
+                        if (wdata[5])
+                            tx_overflow_flag <= 1'b0;
                     end
                     6'h3: irq_en <= wdata;
-                    6'h4: irq_status <= irq_status & ~wdata;
+                    6'h4: begin
+                        irq_status <= irq_status & ~wdata;
+                        if (wdata[2]) begin
+                            ack_error_flag <= 1'b0;
+                            rx_overflow_flag <= 1'b0;
+                            tx_overflow_flag <= 1'b0;
+                        end
+                        if (wdata[3])
+                            tx_overflow_flag <= 1'b0;
+                        if (wdata[4])
+                            rx_overflow_flag <= 1'b0;
+                        if (wdata[5])
+                            ack_error_flag <= 1'b0;
+                    end
                     6'h5: begin
                         if (!tx_fifo_full) begin
                             tx_fifo[tx_head[FIFO_ADDR_BITS-1:0]] <= wdata[7:0];
                             tx_head <= tx_head + 1;
                             irq_status[1] <= 1'b0;
+                        end else begin
+                            tx_overflow_flag <= 1'b1;
+                            irq_status[2] <= 1'b1;
+                            irq_status[3] <= 1'b1;
                         end
                     end
                     6'h7: cmd_reg <= wdata;
@@ -119,11 +149,6 @@ module qar_i2c #(
                 if ((rx_head - (rx_tail + 1)) == 0)
                     irq_status[0] <= 1'b0;
             end
-            status[0] <= (state != STATE_IDLE);
-            status[1] <= (rx_head != rx_tail);
-            status[2] <= (tx_head == tx_tail);
-            status[31:4] <= 28'b0;
-
             case (state)
                 STATE_IDLE: begin
                     sda_drive <= 1'b0;
@@ -192,10 +217,11 @@ module qar_i2c #(
                         scl_state <= ~scl_state;
                         if (scl_state) begin
                             if (!(ctrl_loopback ? 1'b0 : sda_in)) begin
-                                status[3] <= 1'b0;
+                                ack_error_flag <= 1'b0;
                             end else begin
-                                status[3] <= 1'b1;
+                                ack_error_flag <= 1'b1;
                                 irq_status[2] <= 1'b1;
+                                irq_status[5] <= 1'b1;
                             end
                         end else begin
                             state <= STATE_IDLE;
@@ -218,8 +244,9 @@ module qar_i2c #(
                                     rx_head <= rx_head + 1;
                                     irq_status[0] <= 1'b1;
                                 end else begin
-                                    status[3] <= 1'b1;
+                                    rx_overflow_flag <= 1'b1;
                                     irq_status[2] <= 1'b1;
+                                    irq_status[4] <= 1'b1;
                                 end
                                 state <= STATE_IDLE;
                             end else begin
@@ -251,7 +278,7 @@ module qar_i2c #(
             case (addr_word)
                 6'h0: rdata = ctrl;
                 6'h1: rdata = clkdiv;
-                6'h2: rdata = status;
+                6'h2: rdata = status_value;
                 6'h3: rdata = irq_en;
                 6'h4: rdata = irq_status;
                 6'h5: rdata = 32'b0;
