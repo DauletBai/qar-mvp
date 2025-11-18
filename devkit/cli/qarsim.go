@@ -24,6 +24,8 @@ type asmLine struct {
 type buildConfig struct {
 	asmPath    string
 	cPath      string
+	cCompiler  string
+	cFlags     string
 	dataPath   string
 	programOut string
 	dataOut    string
@@ -153,7 +155,8 @@ func main() {
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: qarsim <build|run> [options]\n")
-	fmt.Fprintf(os.Stderr, "Use --asm <file> to point at the .qar assembly, or --c <file> to point at a C source; --data <file> selects the data initializer.\n")
+	fmt.Fprintf(os.Stderr, "Use --asm <file> to point at the .qar assembly, or --c <file> to point at a C source.\n")
+	fmt.Fprintf(os.Stderr, "Use --cc to override the C compiler (default riscv32-unknown-elf-gcc) and --cflags to append extra C flags.\n")
 	os.Exit(1)
 }
 
@@ -162,6 +165,8 @@ func defaultBuildFlagSet(name string) (*flag.FlagSet, *buildConfig) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	fs.StringVar(&cfg.asmPath, "asm", "", "Path to .qar assembly file")
 	fs.StringVar(&cfg.cPath, "c", "", "Path to C source file")
+	fs.StringVar(&cfg.cCompiler, "cc", "", "C compiler for --c (default riscv32-unknown-elf-gcc or QAR_CC env)")
+	fs.StringVar(&cfg.cFlags, "cflags", "", "Extra C compiler flags (appended after QAR_CFLAGS)")
 	fs.StringVar(&cfg.dataPath, "data", "", "Path to data description file (optional)")
 	fs.StringVar(&cfg.programOut, "program", "program.hex", "Output path for program hex")
 	fs.StringVar(&cfg.dataOut, "data-out", "data.hex", "Output path for data hex")

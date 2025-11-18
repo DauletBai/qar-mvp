@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 func buildFromC(cfg *buildConfig) error {
@@ -16,29 +17,39 @@ func buildFromC(cfg *buildConfig) error {
 
 	elfPath := filepath.Join(tempDir, "firmware.elf")
 
-	cc := os.Getenv("QAR_CC")
+	cc := cfg.cCompiler
+	if cc == "" {
+		cc = os.Getenv("QAR_CC")
+	}
 	if cc == "" {
 		cc = "riscv32-unknown-elf-gcc"
 	}
-
-	args := []string{
-		"-Os",
-		"-nostdlib",
-		"-nostartfiles",
-		"-march=rv32i",
-		"-mabi=ilp32",
+	extraFlags := []string{}
+	if envFlags := os.Getenv("QAR_CFLAGS"); envFlags != "" {
+		extraFlags = append(extraFlags, strings.Fields(envFlags)...)
+	}
+	if cfg.cFlags != "" {
+		extraFlags = append(extraFlags, strings.Fields(cfg.cFlags)...)
+	}
+args := []string{
+	"-Os",
+	"-nostdlib",
+	"-nostartfiles",
+	"-march=rv32i",
+	"-mabi=ilp32",
 		"-T", "devkit/cli/linker.ld",
 		"devkit/sdk/crt0.S",
-		"-I", "devkit",
-		cfg.cPath,
-		"-o", elfPath,
-	}
+	"-I", "devkit",
+	cfg.cPath,
+	"-o", elfPath,
+}
 
+args = append(extraFlags, args...)
 	cmd := exec.Command(cc, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("C compilation failed: %w", err)
+		return fmt.Errorf("C compilation failed: %w (command: %s %s)", err, cc, strings.Join(args, " "))
 	}
 
 	elf2qar := filepath.Join("devkit", "tools", "elf2qar", "elf2qar")
