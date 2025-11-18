@@ -1,0 +1,9 @@
+sources:
+- can_loopback.c
+- gpio_irq_demo.c
+- i2c_loopback.c
+- lin_auto_header.c
+- spi_loopback.c
+- timer_pwm_demo.c
+- uart_rs485.c
+- uart_rs485_isr.c
