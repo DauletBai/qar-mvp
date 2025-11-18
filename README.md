@@ -1,3 +1,5 @@
+# <p align="center"><img src="devkit/web/brand/logo.svg" alt="QAR logo" width="320"></p>
+
 # QAR-MVP — Minimal Prototype of the QAR Architecture
 
 QAR-MVP is the first working prototype of the **QAR (Qazaq Architecture of RISC)** initiative.  
