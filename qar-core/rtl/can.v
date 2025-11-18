@@ -33,6 +33,11 @@ module qar_can #(
     reg [2:0]  rx_tail;
     wire [2:0] rx_entries = rx_head - rx_tail;
 
+    wire ctrl_enable      = ctrl[0];
+    wire ctrl_loopback    = ctrl[1];
+    wire ctrl_quiet       = ctrl[2];
+    wire ctrl_filter_byp  = ctrl[3];
+
     assign irq = |(irq_en & irq_status);
 
     always @(posedge clk or negedge rst_n) begin
@@ -72,9 +77,10 @@ module qar_can #(
                     6'hA: tx_data0 <= wdata;
                     6'hB: tx_data1 <= wdata;
                     6'hC: begin
-                        if (ctrl[0]) begin
+                        if (ctrl_enable) begin
                             status[1] <= 1'b0;
-                            if (ctrl[1] && ((tx_id & filter_mask) == (filter_id & filter_mask))) begin
+                            if (ctrl_loopback && !ctrl_quiet &&
+                                (ctrl_filter_byp || ((tx_id & filter_mask) == (filter_id & filter_mask)))) begin
                                 if (rx_entries < 4) begin
                                     rx_fifo_id[rx_head[1:0]]    <= tx_id;
                                     rx_fifo_dlc[rx_head[1:0]]   <= tx_dlc;

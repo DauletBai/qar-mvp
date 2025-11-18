@@ -23,6 +23,11 @@
 #define QAR_CAN_RX_DATA1(base)  QAR_CAN_REG((base), 0x40)
 #define QAR_CAN_RX_FIFO(base)   QAR_CAN_REG((base), 0x44)
 
+#define QAR_CAN_CTRL_ENABLE       (1u << 0)
+#define QAR_CAN_CTRL_LOOPBACK     (1u << 1)
+#define QAR_CAN_CTRL_LISTEN_ONLY  (1u << 2)
+#define QAR_CAN_CTRL_FILTER_BYPASS (1u << 3)
+
 #define QAR_CAN_STATUS_RX_PENDING (1u << 0)
 #define QAR_CAN_STATUS_TX_IDLE    (1u << 1)
 #define QAR_CAN_STATUS_RX_OVERFLOW (1u << 2)
@@ -31,10 +36,15 @@
 #define QAR_CAN_IRQ_TX_DONE  (1u << 1)
 #define QAR_CAN_IRQ_RX_OVF   (1u << 2)
 
-static inline void qar_can_init(uint32_t base, uint32_t bittime, int loopback)
+static inline void qar_can_init(uint32_t base, uint32_t bittime, uint32_t ctrl_flags)
 {
     QAR_CAN_BITTIME(base) = bittime;
-    QAR_CAN_CTRL(base) = (loopback ? 0x2 : 0x0) | 0x1;
+    QAR_CAN_CTRL(base) = ctrl_flags | QAR_CAN_CTRL_ENABLE;
+}
+
+static inline void qar_can_set_ctrl(uint32_t base, uint32_t ctrl_flags)
+{
+    QAR_CAN_CTRL(base) = ctrl_flags;
 }
 
 static inline void qar_can_enable_irq(uint32_t base, uint32_t mask)

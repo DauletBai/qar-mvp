@@ -9,7 +9,7 @@
 
 | Offset | Name          | Description |
 |--------|---------------|-------------|
-| 0x00   | CTRL          | Bit0: enable, bit1: loopback (internal self-test). |
+| 0x00   | CTRL          | Bit0: enable, bit1: loopback (internal self-test), bit2: listen-only (quiet) mode, bit3: filter bypass (accept every frame). |
 | 0x04   | STATUS        | Bit0: RX pending (FIFO not empty), bit1: TX idle, bit2: RX overflow (FIFO full drop), remaining bits reserved. |
 | 0x08   | BITTIME       | Timing register (`BRP`, `SEG1`, `SEG2`, `SJW`). |
 | 0x0C   | ERR_COUNTER   | TEC (15:8) / REC (7:0). |
@@ -29,9 +29,10 @@
 | 0x44   | RX_FIFO_CTRL  | Bits0-2: pending entry count, bit3: overflow flag. Write bit0 to pop one entry, bit1 to flush FIFO, bit2 to clear overflow flag. |
 
 ## Behaviour Summary
-- Firmware writes TX mailboxes then sets `TX_CMD`. In loopback mode the controller immediately copies the frame into the RX FIFO, asserts `STATUS[0]`, and sets `IRQ_STATUS[0]`. Bit1 shows when the transmit path is idle and raises `IRQ_STATUS[1]`.
+- Firmware writes TX mailboxes then sets `TX_CMD`. In loopback mode (`CTRL[1]=1`) the controller immediately copies the frame into the RX FIFO, asserts `STATUS[0]`, and sets `IRQ_STATUS[0]` unless listen-only mode (`CTRL[2]`) is enabled (quiet mode suppresses the self-test copy so the controller behaves like a passive bus monitor). Bit1 shows when the transmit path is idle and raises `IRQ_STATUS[1]`.
 - The RX FIFO holds up to four frames. Firmware reads ID/DLC/DATA registers without altering the FIFO head, then writes `RX_FIFO_CTRL` bit0 to pop the entry (or bit1 to flush all pending frames). If the FIFO is full when a new frame arrives, the overflow flag latches in `STATUS[2]`/`IRQ_STATUS[2]`.
-- Future revisions: external CAN PHY connection, listen-only mode, additional filters/mailboxes, CAN-FD, DMA support.
+- `CTRL[3]` bypasses the acceptance filter so diagnostics can capture every frame regardless of the programmed mask. This is particularly useful when loopback-testing with mismatched IDs or when sniffing the network in a BCM diagnostics mode.
+- Future revisions: external CAN PHY connection, additional filters/mailboxes, CAN-FD, DMA support.
 
 ## Loopback Demo
 `scripts/run_can.sh` assembles `devkit/examples/can_loopback.qar`, which enables loopback mode, transmits two frames (`0x123` with a single word payload and `0x321` with two words), and stores the received IDs + payload words into DMEM[0..5]. Each frame read uses the new `CAN_RX_FIFO_CTRL` pop command so firmware can read ID/data in any order without racing the FIFO pointer. The `qar_core_can_tb` harness checks those locations to make sure RX interrupts fire and the payload path works for single- and dual-word DLC values.
