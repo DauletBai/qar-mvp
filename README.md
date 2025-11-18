@@ -1,15 +1,15 @@
-# <p align="center"><img src="https://raw.githubusercontent.com/DauletBai/qar-mvp/main/devkit/web/brand/logo.svg" alt="QAR logo" width="128"></p>
+# <p align="center"><img src="https://raw.githubusercontent.com/DauletBai/qar-industrial-core/main/devkit/web/brand/logo.svg" alt="QAR logo" width="128"></p>
 
-# QAR-MVP — Minimal Prototype of the QAR Architecture
+# QAR Industrial Core — Minimal Prototype of the QAR Architecture
 
-QAR-MVP is the first working prototype of the **QAR (Qazaq Architecture of RISC)** initiative.  
+QAR Industrial Core is the first working prototype of the **QAR (Qazaq Architecture of RISC)** initiative.  
 This project demonstrates that Kazakhstan can design and implement its own processor architecture, instruction set subset, and development toolkit using only:
 
 - 1 MacBook Air M2 (8 GB RAM)
 - 2 engineers (human + AI collaboration)
 - open-source tools (Verilog, Icarus, Go, C)
 
-The current MVP implements:
+The current platform implements:
 - a functional 32-bit register file  
 - a functional ALU (ADD, SUB, AND, OR, XOR, SLL, SRL)  
 - a minimal RV32I-compatible core capable of executing real instructions  
@@ -22,7 +22,7 @@ This is the **first step** toward a sovereign processor ecosystem in Kazakhstan.
 
 ## Project Structure
 
-qar-mvp/
+qar-industrial-core/
   docs/               # Documentation (architecture, specifications, reports)
   qar-core/
     rtl/              # Verilog RTL modules (regfile, alu, core)
@@ -230,8 +230,8 @@ PATH=$HOME/.local/bin:$PATH sby -f formal/regfile/regfile.sby
 ```
 
 # Documentation
-	•	Architecture specification￼
-	•	MVP progress report￼
+- [Architecture specification](docs/qar-industrial-core.md)
+- [Status report](docs/status-report.md)
 
 # Vision
 

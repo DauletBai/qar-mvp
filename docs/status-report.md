@@ -1,6 +1,6 @@
-# 3. **MVP progress report: `docs/mvp-status.md`**
+# 3. **Status report: `docs/status-report.md`**
 
-# QAR-MVP Progress Report
+# QAR Industrial Core Progress Report
 
 ---
 

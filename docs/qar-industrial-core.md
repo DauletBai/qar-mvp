@@ -1,6 +1,6 @@
 # QAR-Industrial Core Specification (Phase 1)
 
-This document captures the definition of the “universal industrial computer” we plan to implement on top of QAR-Core. It describes the minimum viable product (MVP) for a small, easy-to-program industrial controller module that can be deployed across automotive, mining, energy, and manufacturing verticals.
+This document captures the definition of the “universal industrial computer” we plan to implement on top of QAR-Core. It defines the initial industrial baseline for a small, easy-to-program controller module that can be deployed across automotive, mining, energy, and manufacturing verticals.
 
 ---
 
