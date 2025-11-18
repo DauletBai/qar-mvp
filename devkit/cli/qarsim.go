@@ -23,7 +23,8 @@ type asmLine struct {
 
 type buildConfig struct {
 	asmPath    string
-	cPath      string
+	asmPaths   []string
+	cPaths     []string
 	cCompiler  string
 	cFlags     string
 	dataPath   string
@@ -163,8 +164,14 @@ func usage() {
 func defaultBuildFlagSet(name string) (*flag.FlagSet, *buildConfig) {
 	cfg := &buildConfig{}
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
-	fs.StringVar(&cfg.asmPath, "asm", "", "Path to .qar assembly file")
-	fs.StringVar(&cfg.cPath, "c", "", "Path to C source file")
+	fs.Func("asm", "Path to .qar assembly file (repeatable)", func(value string) error {
+		cfg.asmPaths = append(cfg.asmPaths, value)
+		return nil
+	})
+	fs.Func("c", "Path to C source file (repeatable)", func(value string) error {
+		cfg.cPaths = append(cfg.cPaths, value)
+		return nil
+	})
 	fs.StringVar(&cfg.cCompiler, "cc", "", "C compiler for --c (default riscv32-unknown-elf-gcc or QAR_CC env)")
 	fs.StringVar(&cfg.cFlags, "cflags", "", "Extra C compiler flags (appended after QAR_CFLAGS)")
 	fs.StringVar(&cfg.dataPath, "data", "", "Path to data description file (optional)")
@@ -203,7 +210,7 @@ func runRun(args []string) {
 }
 
 func doBuild(cfg *buildConfig) error {
-	if cfg.asmPath == "" && cfg.cPath == "" {
+	if len(cfg.asmPaths) == 0 && len(cfg.cPaths) == 0 {
 		return errors.New("--asm or --c is required")
 	}
 	if cfg.imemDepth <= 0 {
@@ -213,11 +220,15 @@ func doBuild(cfg *buildConfig) error {
 		return errors.New("dmem depth must be positive")
 	}
 
-	if cfg.cPath != "" {
+	if len(cfg.cPaths) > 0 {
 		return buildFromC(cfg)
 	}
 
-	insts, labels, err := parseAssembly(cfg.asmPath)
+	paths := cfg.asmPaths
+	if len(paths) == 0 && cfg.asmPath != "" {
+		paths = []string{cfg.asmPath}
+	}
+	insts, labels, err := parseAssemblies(paths)
 	if err != nil {
 		return err
 	}
@@ -265,18 +276,22 @@ func exitErr(err error) {
 	os.Exit(1)
 }
 
-func parseAssembly(path string) ([]asmLine, map[string]uint32, error) {
+func parseAssemblies(paths []string) ([]asmLine, map[string]uint32, error) {
 	parser := newAsmParser()
-	lines, err := parser.loadFile(path)
-	if err != nil {
-		return nil, nil, err
+	var allLines []sourceLine
+	for _, path := range paths {
+		lines, err := parser.loadFile(path)
+		if err != nil {
+			return nil, nil, err
+		}
+		allLines = append(allLines, lines...)
 	}
 
 	var insts []asmLine
 	labels := map[string]uint32{}
 	var pc uint32
 
-	for _, src := range lines {
+	for _, src := range allLines {
 		line := stripComment(src.text)
 		if strings.TrimSpace(line) == "" {
 			continue

@@ -40,11 +40,12 @@ args := []string{
 		"-T", "devkit/cli/linker.ld",
 		"devkit/sdk/crt0.S",
 	"-I", "devkit",
-	cfg.cPath,
 	"-o", elfPath,
+
 }
 
-args = append(extraFlags, args...)
+args = append(args, cfg.cPaths...)
+args = append(args, extraFlags...)
 	cmd := exec.Command(cc, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
