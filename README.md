@@ -7,7 +7,7 @@ This project demonstrates that Kazakhstan can design and implement its own proce
 
 - 1 MacBook Air M2 (8 GB RAM)
 - 2 engineers (human + AI collaboration)
-- open-source tools (Verilog, Icarus, Go)
+- open-source tools (Verilog, Icarus, Go, C)
 
 The current MVP implements:
 - a functional 32-bit register file  
@@ -96,6 +96,18 @@ go run ./devkit/cli run \
   --imem 128 \
   --dmem 256
 ```
+
+### Host-side C Utilities
+To round out the open-source toolchain, the repository now includes small portable C helpers. The first one, `devkit/tools/qhex`, inspects QAR hex images and can emit raw little-endian binaries for FPGA ROM initialisation:
+
+```sh
+cd devkit/tools/qhex
+make                     # builds qhex using your system compiler
+./qhex ../../../program.hex
+./qhex --bin irq_demo.bin ../../../program.hex
+```
+
+See `docs/devkit/qhex.md` for more details.
 
 # Additional Examples
 - `devkit/examples/sum_positive.qar` — filters out negative values and exercises JAL/JALR.
