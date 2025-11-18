@@ -130,6 +130,13 @@ brew install icarus-verilog
 Install Go toolchain (for the DevKit CLI):
 brew install go
 
+Install a RISC-V GCC toolchain (required for `qarsim --c` + `elf2qar` flow), e.g.:
+```
+brew tap riscv-software-src/riscv
+brew install riscv-gnu-toolchain
+```
+Ensure the compiler is on PATH (or set `QAR_CC=riscv32-unknown-elf-gcc`).
+
 ## How to Run Simulations
 
 Each script automatically invokes `go run ./devkit/cli build` to regenerate the correct `program.hex`/`data.hex` (IRQ demo for the execution test, sum-positive for randomized load/store) before compiling with Icarus Verilog.
@@ -232,3 +239,4 @@ The long-term goal is to establish a sovereign processor, OS, compiler, and hard
 # License
 
 This project is currently released under the MIT License.
+- Building C firmware: RISC-V GCC (or compatible) plus our new `elf2qar` converter (see SDK docs).

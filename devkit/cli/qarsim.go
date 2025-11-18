@@ -23,6 +23,7 @@ type asmLine struct {
 
 type buildConfig struct {
 	asmPath    string
+	cPath      string
 	dataPath   string
 	programOut string
 	dataOut    string
@@ -152,7 +153,7 @@ func main() {
 
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: qarsim <build|run> [options]\n")
-	fmt.Fprintf(os.Stderr, "Use --asm <file> to point at the .qar assembly and --data <file> for the data initializer.\n")
+	fmt.Fprintf(os.Stderr, "Use --asm <file> to point at the .qar assembly, or --c <file> to point at a C source; --data <file> selects the data initializer.\n")
 	os.Exit(1)
 }
 
@@ -160,6 +161,7 @@ func defaultBuildFlagSet(name string) (*flag.FlagSet, *buildConfig) {
 	cfg := &buildConfig{}
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	fs.StringVar(&cfg.asmPath, "asm", "", "Path to .qar assembly file")
+	fs.StringVar(&cfg.cPath, "c", "", "Path to C source file")
 	fs.StringVar(&cfg.dataPath, "data", "", "Path to data description file (optional)")
 	fs.StringVar(&cfg.programOut, "program", "program.hex", "Output path for program hex")
 	fs.StringVar(&cfg.dataOut, "data-out", "data.hex", "Output path for data hex")
@@ -196,14 +198,18 @@ func runRun(args []string) {
 }
 
 func doBuild(cfg *buildConfig) error {
-	if cfg.asmPath == "" {
-		return errors.New("--asm is required")
+	if cfg.asmPath == "" && cfg.cPath == "" {
+		return errors.New("--asm or --c is required")
 	}
 	if cfg.imemDepth <= 0 {
 		return errors.New("imem depth must be positive")
 	}
 	if cfg.dmemDepth <= 0 {
 		return errors.New("dmem depth must be positive")
+	}
+
+	if cfg.cPath != "" {
+		return buildFromC(cfg)
 	}
 
 	insts, labels, err := parseAssembly(cfg.asmPath)
