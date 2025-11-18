@@ -22,7 +22,6 @@ type asmLine struct {
 }
 
 type buildConfig struct {
-	asmPath    string
 	asmPaths   []string
 	cPaths     []string
 	cCompiler  string
@@ -225,9 +224,6 @@ func doBuild(cfg *buildConfig) error {
 	}
 
 	paths := cfg.asmPaths
-	if len(paths) == 0 && cfg.asmPath != "" {
-		paths = []string{cfg.asmPath}
-	}
 	insts, labels, err := parseAssemblies(paths)
 	if err != nil {
 		return err

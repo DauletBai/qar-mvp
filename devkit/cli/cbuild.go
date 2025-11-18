@@ -31,21 +31,20 @@ func buildFromC(cfg *buildConfig) error {
 	if cfg.cFlags != "" {
 		extraFlags = append(extraFlags, strings.Fields(cfg.cFlags)...)
 	}
-args := []string{
-	"-Os",
-	"-nostdlib",
-	"-nostartfiles",
-	"-march=rv32i",
-	"-mabi=ilp32",
+	args := []string{
+		"-Os",
+		"-nostdlib",
+		"-nostartfiles",
+		"-march=rv32i",
+		"-mabi=ilp32",
 		"-T", "devkit/cli/linker.ld",
 		"devkit/sdk/crt0.S",
-	"-I", "devkit",
-	"-o", elfPath,
+		"-I", "devkit",
+		"-o", elfPath,
+	}
 
-}
-
-args = append(args, cfg.cPaths...)
-args = append(args, extraFlags...)
+	args = append(args, cfg.cPaths...)
+	args = append(args, extraFlags...)
 	cmd := exec.Command(cc, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
