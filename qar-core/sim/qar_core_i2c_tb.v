@@ -119,8 +119,8 @@ module qar_core_i2c_tb();
 
     initial begin
         #400000;
-        $display("DMEM[0] = 0x%08h (expected 0x00000064)", dmem[0]);
-        if (dmem[0] !== 32'h0000_0064) begin
+        $display("DMEM[0] = 0x%08h (expected 0x00000004)", dmem[0]);
+        if (dmem[0] !== 32'h0000_0004) begin
             $display("ERROR: I2C status mismatch");
             $finish;
         end

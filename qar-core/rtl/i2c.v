@@ -47,21 +47,27 @@ module qar_i2c #(
     wire rx_fifo_full  = (rx_head - rx_tail) == FIFO_DEPTH;
     wire rx_fifo_empty = (rx_head == rx_tail);
 
-    reg        busy;
+    reg [2:0]  state;
     reg        scl_state;
     reg        sda_state;
     reg        sda_drive;
     reg [3:0]  bit_index;
     reg [7:0]  shift_reg;
     reg [15:0] div_counter;
-    reg        awaiting_ack;
-    reg        read_cycle;
 
-    assign scl    = scl_state ? 1'b1 : 1'b0;
+    localparam STATE_IDLE  = 3'd0;
+    localparam STATE_START = 3'd1;
+    localparam STATE_WRITE = 3'd2;
+    localparam STATE_ACK   = 3'd3;
+    localparam STATE_READ  = 3'd4;
+    localparam STATE_STOP  = 3'd5;
+
+    assign scl    = scl_state;
     assign sda_out = sda_state;
     assign sda_oe = sda_drive;
 
-    wire ctrl_enable = ctrl[0];
+    wire ctrl_enable   = ctrl[0];
+    wire ctrl_loopback = ctrl[4];
 
     assign irq = |(irq_en & irq_status);
 
@@ -77,107 +83,165 @@ module qar_i2c #(
             tx_tail     <= 0;
             rx_head     <= 0;
             rx_tail     <= 0;
-            busy        <= 1'b0;
+            state       <= STATE_IDLE;
             scl_state   <= 1'b1;
             sda_state   <= 1'b1;
             sda_drive   <= 1'b0;
             bit_index   <= 4'd0;
             shift_reg   <= 8'h0;
             div_counter <= 16'd0;
-            awaiting_ack<= 1'b0;
-            read_cycle  <= 1'b0;
         end else begin
             if (bus_write) begin
                 case (addr_word)
                     6'h0: ctrl <= wdata;
-                    6'h1: status <= status & ~wdata;
-                    6'h2: clkdiv <= wdata;
-                    6'h3: begin
+                    6'h1: clkdiv <= wdata;
+                    6'h2: begin
+                        status <= status & ~wdata;
+                        if (wdata[3])
+                            irq_status[2] <= 1'b0;
+                    end
+                    6'h3: irq_en <= wdata;
+                    6'h4: irq_status <= irq_status & ~wdata;
+                    6'h5: begin
                         if (!tx_fifo_full) begin
                             tx_fifo[tx_head[FIFO_ADDR_BITS-1:0]] <= wdata[7:0];
                             tx_head <= tx_head + 1;
+                            irq_status[1] <= 1'b0;
                         end
                     end
-                    6'h4: cmd_reg <= wdata;
-                    6'h5: irq_en <= wdata;
-                    6'h6: irq_status <= irq_status & ~wdata;
+                    6'h7: cmd_reg <= wdata;
                     default: ;
                 endcase
             end
 
-            if (bus_read && addr_word == 6'h3 && !rx_fifo_empty) begin
+            if (bus_read && addr_word == 6'h6 && !rx_fifo_empty) begin
                 rx_tail <= rx_tail + 1;
                 if ((rx_head - (rx_tail + 1)) == 0)
                     irq_status[0] <= 1'b0;
             end
+            status[0] <= (state != STATE_IDLE);
+            status[1] <= (rx_head != rx_tail);
+            status[2] <= (tx_head == tx_tail);
+            status[31:4] <= 28'b0;
 
-            if (ctrl_enable && !busy) begin
-                if (cmd_reg[0]) begin // START
-                    busy      <= 1'b1;
-                    sda_drive <= 1'b1;
-                    sda_state <= 1'b0;
-                    scl_state <= 1'b1;
-                    cmd_reg[0] <= 1'b0;
-                end else if (cmd_reg[2] && !tx_fifo_empty) begin // WRITE
-                    shift_reg <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]];
-                    tx_tail   <= tx_tail + 1;
-                    bit_index <= 4'd7;
-                    read_cycle<= 1'b0;
-                    awaiting_ack <= 1'b0;
-                    sda_drive <= 1'b1;
-                    scl_state <= 1'b0;
-                    busy <= 1'b1;
-                end else if (cmd_reg[1]) begin // STOP
-                    busy <= 1'b1;
-                    sda_drive <= 1'b1;
-                    sda_state <= 1'b0;
-                    scl_state <= 1'b1;
-                    cmd_reg[1] <= 1'b0;
-                end else if (cmd_reg[3]) begin // READ
-                    bit_index <= 4'd7;
-                    read_cycle <= 1'b1;
-                    awaiting_ack <= 1'b0;
+            case (state)
+                STATE_IDLE: begin
                     sda_drive <= 1'b0;
-                    scl_state <= 1'b0;
-                    busy <= 1'b1;
-                end
-            end
-
-            if (busy) begin
-                if (div_counter >= clkdiv[15:0]) begin
+                    sda_state <= 1'b1;
+                    scl_state <= 1'b1;
                     div_counter <= 16'd0;
-                    scl_state <= ~scl_state;
-                    if (scl_state) begin
-                        if (!awaiting_ack && bit_index == 4'd15) begin
-                            busy <= 1'b0;
-                            sda_drive <= 1'b0;
-                            scl_state <= 1'b1;
-                            if (read_cycle && !rx_fifo_full) begin
-                                rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= shift_reg;
-                                rx_head <= rx_head + 1;
-                                irq_status[0] <= 1'b1;
-                            end
-                        end else begin
-                            if (!awaiting_ack)
-                                bit_index <= bit_index - 1;
-                            awaiting_ack <= (bit_index == 4'd0);
-                        end
-                    end else begin
-                        if (!read_cycle) begin
+                    if (ctrl_enable) begin
+                        if (cmd_reg[0]) begin
+                            cmd_reg[0] <= 1'b0;
                             sda_drive <= 1'b1;
-                            sda_state <= shift_reg[bit_index];
-                        end else begin
+                            sda_state <= 1'b0;
+                            state <= STATE_START;
+                        end else if (cmd_reg[2] && !tx_fifo_empty) begin
+                            cmd_reg[2] <= 1'b0;
+                            shift_reg <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]];
+                            tx_tail <= tx_tail + 1;
+                            bit_index <= 4'd7;
+                            sda_drive <= 1'b1;
+                            sda_state <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]][7];
+                            scl_state <= 1'b0;
+                            state <= STATE_WRITE;
+                        end else if (cmd_reg[3]) begin
+                            cmd_reg[3] <= 1'b0;
+                            bit_index <= 4'd7;
                             sda_drive <= 1'b0;
-                            if (!scl_state)
-                                shift_reg[bit_index] <= sda_in;
+                            scl_state <= 1'b0;
+                            state <= STATE_READ;
+                        end else if (cmd_reg[1]) begin
+                            cmd_reg[1] <= 1'b0;
+                            sda_drive <= 1'b1;
+                            sda_state <= 1'b0;
+                            state <= STATE_STOP;
                         end
                     end
-                end else begin
-                    div_counter <= div_counter + 1;
                 end
-            end else begin
-                div_counter <= 16'd0;
-            end
+                STATE_START: begin
+                    if (div_counter >= clkdiv[15:0]) begin
+                        div_counter <= 16'd0;
+                        sda_state <= 1'b0;
+                        scl_state <= 1'b0;
+                        state <= STATE_IDLE;
+                    end else begin
+                        div_counter <= div_counter + 1;
+                    end
+                end
+                STATE_WRITE: begin
+                    if (div_counter >= clkdiv[15:0]) begin
+                        div_counter <= 16'd0;
+                        scl_state <= ~scl_state;
+                        if (scl_state) begin
+                            if (bit_index == 4'd0) begin
+                                sda_drive <= 1'b0;
+                                state <= STATE_ACK;
+                            end else begin
+                                bit_index <= bit_index - 1;
+                                sda_state <= shift_reg[bit_index-1];
+                            end
+                        end
+                    end else begin
+                        div_counter <= div_counter + 1;
+                    end
+                end
+                STATE_ACK: begin
+                    if (div_counter >= clkdiv[15:0]) begin
+                        div_counter <= 16'd0;
+                        scl_state <= ~scl_state;
+                        if (scl_state) begin
+                            if (!(ctrl_loopback ? 1'b0 : sda_in)) begin
+                                status[3] <= 1'b0;
+                            end else begin
+                                status[3] <= 1'b1;
+                                irq_status[2] <= 1'b1;
+                            end
+                        end else begin
+                            state <= STATE_IDLE;
+                            if ((tx_head - tx_tail) == 0)
+                                irq_status[1] <= 1'b1;
+                        end
+                    end else begin
+                        div_counter <= div_counter + 1;
+                    end
+                end
+                STATE_READ: begin
+                    if (div_counter >= clkdiv[15:0]) begin
+                        div_counter <= 16'd0;
+                        scl_state <= ~scl_state;
+                        if (scl_state) begin
+                            shift_reg[bit_index] <= ctrl_loopback ? sda_state : sda_in;
+                            if (bit_index == 4'd0) begin
+                                if (!rx_fifo_full) begin
+                                    rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= shift_reg;
+                                    rx_head <= rx_head + 1;
+                                    irq_status[0] <= 1'b1;
+                                end else begin
+                                    status[3] <= 1'b1;
+                                    irq_status[2] <= 1'b1;
+                                end
+                                state <= STATE_IDLE;
+                            end else begin
+                                bit_index <= bit_index - 1;
+                            end
+                        end
+                    end else begin
+                        div_counter <= div_counter + 1;
+                    end
+                end
+                STATE_STOP: begin
+                    if (div_counter >= clkdiv[15:0]) begin
+                        div_counter <= 16'd0;
+                        scl_state <= 1'b1;
+                        sda_state <= 1'b1;
+                        state <= STATE_IDLE;
+                    end else begin
+                        div_counter <= div_counter + 1;
+                    end
+                end
+                default: state <= STATE_IDLE;
+            endcase
         end
     end
 
@@ -186,12 +250,13 @@ module qar_i2c #(
         if (bus_read) begin
             case (addr_word)
                 6'h0: rdata = ctrl;
-                6'h1: rdata = status;
-                6'h2: rdata = clkdiv;
-                6'h3: rdata = {24'b0, rx_fifo[rx_tail[FIFO_ADDR_BITS-1:0]]};
-                6'h4: rdata = cmd_reg;
-                6'h5: rdata = irq_en;
-                6'h6: rdata = irq_status;
+                6'h1: rdata = clkdiv;
+                6'h2: rdata = status;
+                6'h3: rdata = irq_en;
+                6'h4: rdata = irq_status;
+                6'h5: rdata = 32'b0;
+                6'h6: rdata = {24'b0, rx_fifo[rx_tail[FIFO_ADDR_BITS-1:0]]};
+                6'h7: rdata = cmd_reg;
                 default: rdata = 32'b0;
             endcase
         end

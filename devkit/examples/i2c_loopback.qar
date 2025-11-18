@@ -5,7 +5,7 @@
 
     ADDI x1, x0, 0        # DMEM pointer
 
-    ADDI x6, x0, 0x1      # enable controller
+    ADDI x6, x0, 0x11     # enable controller + loopback ACK
     SW   x6, I2C_CTRL(x5)
 
     ADDI x6, x0, 10
@@ -47,6 +47,13 @@ wait_stop:
     LW   x9, I2C_CMD(x5)
     AND  x10, x9, x8
     BNE  x10, x0, wait_stop
+
+    ADDI x12, x0, 1
+
+wait_idle:
+    LW   x9, I2C_STATUS(x5)
+    AND  x10, x9, x12
+    BNE  x10, x0, wait_idle
 
     LW   x11, I2C_STATUS(x5)
     SW   x11, 0(x1)

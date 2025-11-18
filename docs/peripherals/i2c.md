@@ -7,14 +7,14 @@
 
 | Offset | Name        | Description |
 |--------|-------------|-------------|
-| 0x00   | CTRL        | Bit0: enable, bit1: ACK-on-read (future), bit4: reserved. |
+| 0x00   | CTRL        | Bit0: enable, bit4: loopback ACK/self-test (forces ACK low). |
 | 0x04   | CLKDIV      | Divider to derive SCL; actual SCL toggles every `(CLKDIV+1)` core cycles. |
 | 0x08   | STATUS      | Bit0: busy, bit1: RX FIFO non-empty, bit2: TX FIFO empty, bit3: fault/NACK. |
-| 0x0C   | IRQ_EN      | Interrupt enable bits (RX ready, TX empty, fault). |
+| 0x0C   | IRQ_EN      | Interrupt enable bits (bit0 RX ready, bit1 TX empty, bit2 fault). |
 | 0x10   | IRQ_STATUS  | Interrupt status (write-1-to-clear). |
 | 0x14   | TXDATA      | Write pushes a byte into the TX FIFO. |
 | 0x18   | RXDATA      | Read pops a byte from the RX FIFO. |
-| 0x1C   | CMD         | Bit0: START, bit1: STOP, bit2: WRITE byte, bit3: READ byte (auto-cleared). |
+| 0x1C   | CMD         | Bit0: START, bit1: STOP, bit2: WRITE byte (consumes TX FIFO), bit3: READ byte (pushes RX FIFO). Auto-cleared on acceptance. |
 
 ## Behaviour
 - Firmware sequences transactions by loading bytes into `TXDATA` and toggling `CMD` bits for START/STOP/WRITE/READ. Ack/Nack handling is implicit; a missing ACK raises the fault bit which firmware clears via `STATUS`/`IRQ_STATUS`.
@@ -22,4 +22,4 @@
 - The current implementation assumes a single master environment and focuses on generating basic START → address → data → STOP flows suitable for EEPROMs and sensors; future work will add repeated-start and clock-stretch tolerance.
 
 ## Example
-`devkit/examples/i2c_loopback.qar` configures the controller for a simple self-loop (SDA fed back to itself), issues a START + two writes + STOP, and stores the observed RX FIFO values in DMEM to exercise the registers. Run it via `./scripts/run_i2c.sh`. The provided HAL (`devkit/hal/i2c.h`) offers helper functions for initializing the controller, staging bytes, and checking status.
+`devkit/examples/i2c_loopback.qar` configures the controller for a simple self-loop (CTRL[4] enables an internal ACK), issues a START + two writes + STOP, and stores the resulting STATUS word in DMEM. Run it via `./scripts/run_i2c.sh`. The HAL (`devkit/hal/i2c.h`) offers helper functions for initializing the controller, staging bytes, issuing commands, and checking status.
