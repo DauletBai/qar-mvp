@@ -7,7 +7,7 @@
 
 | Offset | Name        | Description |
 |--------|-------------|-------------|
-| 0x00   | CTRL        | Bit0: enable, bit1: CPOL, bit2: CPHA, bit3: LSB-first, bit4: internal loopback (route MOSI back to RX for self-test). |
+| 0x00   | CTRL        | Bit0: enable, bit1: CPOL, bit2: CPHA, bit3: LSB-first, bit4: internal loopback (route MOSI back to RX), bits[11:8]: auto-CS byte count (0 = hold CS until software changes it). |
 | 0x04   | STATUS      | Bit0: TX FIFO has space, bit1: RX FIFO non-empty, bit2: busy, bit3: fault (write-1-to-clear via `IRQ_STATUS`). |
 | 0x08   | CLKDIV      | SPI clock divider (`f_sck = f_clk / (2 * (CLKDIV+1))`). |
 | 0x0C   | TXDATA      | Writing pushes an 8-bit word into the TX FIFO. |

@@ -36,6 +36,7 @@ module qar_spi #(
     reg [31:0] irq_en;
     reg [31:0] irq_status;
     reg [3:0]  cs_active;
+    reg [3:0]  cs_auto_count;
     reg        fault_flag;
 
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
@@ -85,6 +86,7 @@ module qar_spi #(
             ctrl       <= 32'h1;
             clkdiv     <= 32'd1;
             cs_select  <= 32'h1;
+            cs_auto_count <= 4'd1;
             irq_en     <= 32'h0;
             irq_status <= 32'h0;
             cs_active  <= 4'b0000;
@@ -105,7 +107,10 @@ module qar_spi #(
                 case (addr_word)
                     6'h0: ctrl <= wdata;
                     6'h2: clkdiv <= wdata;
-                    6'h5: cs_select <= wdata;
+                    6'h5: begin
+                        cs_select <= wdata;
+                        cs_auto_count <= 4'd1;
+                    end
                     6'h6: irq_en <= wdata;
                     6'h7: begin
                         irq_status <= irq_status & ~wdata;
@@ -141,6 +146,7 @@ module qar_spi #(
                 end else begin
                     busy      <= 1'b1;
                     cs_active <= cs_select[3:0];
+                    cs_auto_count <= ctrl[8+:4];
                     tx_shift  <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]];
                     active_tx_byte <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]];
                     rx_shift  <= 8'h0;
@@ -162,7 +168,10 @@ module qar_spi #(
                         rx_shift <= rx_shift_combined;
                         if (bit_index == 3'd0) begin
                             busy <= 1'b0;
-                            cs_active <= 4'b0000;
+                            if (cs_auto_count <= 1)
+                                cs_active <= 4'b0000;
+                            else
+                                cs_auto_count <= cs_auto_count - 1;
                             if (!rx_fifo_full) begin
                                 rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= ctrl_loopback ? active_tx_byte : rx_shift_combined;
                                 rx_head <= rx_head + 1;
