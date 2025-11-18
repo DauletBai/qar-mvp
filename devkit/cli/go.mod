@@ -1,3 +1,3 @@
-module github.com/DauletBai/qar-mvp/devkit/cli
+module github.com/DauletBai/qar-industrial-core/devkit/cli
 
 go 1.24.1
