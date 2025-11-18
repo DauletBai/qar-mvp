@@ -118,6 +118,7 @@ See `docs/devkit/qhex.md` for more details.
 - `devkit/examples/c/can_loopback.c` — C-based CAN loopback sample using the new quiet/filter-bypass controls.
 - `devkit/examples/c/lin_auto_header.c` — demonstrates the UART HAL’s LIN auto-header sequence from C firmware.
 - `devkit/examples/c/timer_pwm_demo.c` — configures timer PWM outputs routed onto GPIO pins and reads capture values for diagnostics.
+- `devkit/examples/c/i2c_loopback.c` — replicates the loopback START/WRITE/STOP sequence using the I²C HAL.
 
 ## Tools Required
 
