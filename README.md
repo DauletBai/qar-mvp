@@ -1,4 +1,4 @@
-# <p align="center"><img src="devkit/web/brand/logo.svg?raw=true" alt="QAR logo" width="128"></p>
+# <p align="center"><img src="https://raw.githubusercontent.com/DauletBai/qar-mvp/main/devkit/web/brand/logo.svg" alt="QAR logo" width="320"></p>
 
 # QAR-MVP — Minimal Prototype of the QAR Architecture
 
