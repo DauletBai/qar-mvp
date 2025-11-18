@@ -2,10 +2,11 @@
 #define QAR_HAL_ADC_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_ADC0_BASE 0x40006000u
 
-#define QAR_ADC_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_ADC_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_ADC_CTRL(base)        QAR_ADC_REG((base), 0x00)
 #define QAR_ADC_STATUS(base)      QAR_ADC_REG((base), 0x04)

@@ -2,10 +2,11 @@
 #define QAR_HAL_SPI_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_SPI0_BASE 0x40004000u
 
-#define QAR_SPI_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_SPI_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_SPI_CTRL(base)     QAR_SPI_REG((base), 0x00)
 #define QAR_SPI_STATUS(base)   QAR_SPI_REG((base), 0x04)

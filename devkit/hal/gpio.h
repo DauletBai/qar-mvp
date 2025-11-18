@@ -2,10 +2,11 @@
 #define QAR_HAL_GPIO_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_GPIO0_BASE 0x40000000u
 
-#define QAR_GPIO_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_GPIO_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_GPIO_DIR(base)        QAR_GPIO_REG((base), 0x00)
 #define QAR_GPIO_OUT(base)        QAR_GPIO_REG((base), 0x04)

@@ -2,10 +2,11 @@
 #define QAR_HAL_TIMER_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_TIMER0_BASE 0x40005000u
 
-#define QAR_TIMER_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_TIMER_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_TIMER_CTRL(base)         QAR_TIMER_REG((base), 0x00)
 #define QAR_TIMER_PRESCALE(base)     QAR_TIMER_REG((base), 0x04)

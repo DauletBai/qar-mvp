@@ -2,10 +2,11 @@
 #define QAR_HAL_I2C_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_I2C0_BASE 0x40004400u
 
-#define QAR_I2C_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_I2C_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_I2C_CTRL(base)     QAR_I2C_REG((base), 0x00)
 #define QAR_I2C_CLKDIV(base)   QAR_I2C_REG((base), 0x04)

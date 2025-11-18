@@ -2,11 +2,12 @@
 #define QAR_HAL_UART_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_UART0_BASE 0x40001000u
 #define QAR_UART1_BASE 0x40002000u
 
-#define QAR_UART_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_UART_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_UART_DATA(base)       QAR_UART_REG((base), 0x00)
 #define QAR_UART_STATUS(base)     QAR_UART_REG((base), 0x04)

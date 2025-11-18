@@ -2,10 +2,11 @@
 #define QAR_HAL_CAN_H
 
 #include <stdint.h>
+#include "mmio.h"
 
 #define QAR_CAN0_BASE 0x40003000u
 
-#define QAR_CAN_REG(base, offset) (*((volatile uint32_t *)((base) + (offset))))
+#define QAR_CAN_REG(base, offset) QAR_MMIO32((base), (offset))
 
 #define QAR_CAN_CTRL(base)      QAR_CAN_REG((base), 0x00)
 #define QAR_CAN_STATUS(base)    QAR_CAN_REG((base), 0x04)
