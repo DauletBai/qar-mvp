@@ -56,13 +56,12 @@ Today this compiles with any host compiler (`clang -c devkit/examples/c/gpio_irq
 ## Next Steps
 
 - **Prototype C→HEX Flow**  
-  We need a path from C sources to QAR machine code. Near-term options under evaluation:
-  1. **LLVM/Clang backend** — leverage Clang to emit RV32I code, then adapt the backend for QAR-specific CSR/peripheral conventions; convert ELF → `.hex` via a new Go tool or `qhex`.
-  2. **C-to-assembly transpiler** — build a minimal translator that emits `.qar` (assembly) for a constrained subset of C, which can then pass through the existing `qarsim` assembler.
-  3. **Bootstrapping with RV GCC** — since QAR currently matches RV32I semantics, use an upstream RISC-V GCC/Newlib toolchain as an interim solution until a native backend is ready.
+  The detailed plan lives in `docs/devkit/c_to_hex.md`. Summary:
+  1. Start with a RISC-V GCC bootstrap path (QAR currently mirrors RV32I), compile C into ELF, then convert to `.hex` via a new Go helper (`elf2qar`).
+  2. In parallel, explore a minimalist C→`.qar` transpiler for tighter control.
+  3. Longer-term, evaluate a dedicated LLVM backend.
 
-  Initial experiments will focus on option 2 (faster to prototype) while we scope effort for a proper LLVM backend. Once any path can emit `.hex`, we will extend `devkit/cli` with `--c` support to compile, assemble, and (optionally) `qhex --bin` the result.
+  Once the bootstrap path works, we will extend `devkit/cli` with a `--c` option (compiler + `elf2qar`, optionally `qhex --bin`).
 
-- Add more C samples (CAN loopback, LIN master, timer PWM) so HAL coverage is complete.
 - Prototype the translation flow described above to validate code-gen.
 - Build startup/runtime scaffolding (`crt0`, vector tables) and integrate with `devkit/cli`.
