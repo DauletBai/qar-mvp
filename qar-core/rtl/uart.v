@@ -99,6 +99,8 @@ module qar_uart #(
     reg [31:0] rs485_ctrl;
     reg [31:0] status;
     reg [31:0] idle_cfg;
+    reg [31:0] lin_ctrl;
+    reg [31:0] lin_cmd;
 
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
@@ -130,11 +132,19 @@ module qar_uart #(
     reg        rx_two_stop_latch;
     reg        rx_stop_error;
     reg        rx_start_error;
+    reg        lin_break_pending;
+    reg        lin_break_active;
+    reg [31:0] lin_break_counter;
+    reg [31:0] lin_break_tick;
+    reg [31:0] lin_rx_low_counter;
+    reg [31:0] lin_rx_tick;
 
     wire ctrl_enable     = ctrl[0];
     wire ctrl_parity_en  = ctrl[1];
     wire ctrl_parity_odd = ctrl[2];
     wire ctrl_two_stop   = ctrl[3];
+    wire ctrl_lin_mode   = ctrl[5];
+    wire [15:0] lin_break_length = (lin_ctrl[15:0] == 16'd0) ? 16'd13 : lin_ctrl[15:0];
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -145,6 +155,8 @@ module qar_uart #(
             rs485_ctrl  <= 32'h0000_0001;
             status      <= 32'b0;
             idle_cfg    <= 32'b0;
+            lin_ctrl    <= 32'd13;
+            lin_cmd     <= 32'b0;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
@@ -168,6 +180,12 @@ module qar_uart #(
             rx_two_stop_latch <= 1'b0;
             rx_stop_error <= 1'b0;
             rx_start_error <= 1'b0;
+            lin_break_pending <= 1'b0;
+            lin_break_active  <= 1'b0;
+            lin_break_counter <= 32'b0;
+            lin_break_tick    <= 32'b0;
+            lin_rx_low_counter<= 32'b0;
+            lin_rx_tick       <= 32'b0;
         end else begin
             rx_sync1 <= rx;
             rx_sync2 <= rx_sync1;
@@ -197,6 +215,19 @@ module qar_uart #(
                     end
                     4'h6: rs485_ctrl <= wdata;
                     4'h7: idle_cfg <= wdata;
+                    4'h8: lin_ctrl <= wdata;
+                    4'h9: begin
+                        lin_cmd <= wdata;
+                        if (wdata[0]) begin
+                            lin_break_pending <= 1'b1;
+                            status[7] <= 1'b1;
+                            irq_status[4] <= 1'b1;
+                        end
+                        if (wdata[1]) begin
+                            status[7] <= 1'b0;
+                            irq_status[4] <= 1'b0;
+                        end
+                    end
                 endcase
             end
 
@@ -210,11 +241,35 @@ module qar_uart #(
 
             status[0] <= !rx_fifo_empty;
             status[1] <= !tx_fifo_full;
-            status[4] <= (tx_bits_remaining != 0);
+            status[4] <= (tx_bits_remaining != 0) || lin_break_active;
+
+            if (ctrl_lin_mode && !lin_break_active && lin_break_pending && ctrl_enable &&
+                tx_bits_remaining == 0 && tx_fifo_empty) begin
+                lin_break_active <= 1'b1;
+                lin_break_pending <= 1'b0;
+                lin_break_counter <= 32'b0;
+            end
 
             if (!ctrl_enable) begin
                 tx_bits_remaining <= 0;
                 tx <= 1'b1;
+            end else if (lin_break_active) begin
+                tx <= 1'b0;
+                tx_bits_remaining <= 0;
+                if (lin_break_tick >= baud_div) begin
+                    lin_break_tick <= 32'b0;
+                    if (lin_break_counter >= lin_break_length) begin
+                        lin_break_active <= 1'b0;
+                        lin_break_counter <= 32'b0;
+                        tx <= 1'b1;
+                        status[7] <= 1'b1;
+                        irq_status[4] <= 1'b1;
+                    end else begin
+                        lin_break_counter <= lin_break_counter + 1;
+                    end
+                end else begin
+                    lin_break_tick <= lin_break_tick + 1;
+                end
             end else if (tx_bits_remaining == 0) begin
                 if (!tx_fifo_empty) begin
                     tx_shift <= build_tx_frame(
@@ -318,6 +373,28 @@ module qar_uart #(
                     rx_counter <= rx_counter + 1;
                 end
             end
+
+            if (ctrl_lin_mode && ctrl_enable) begin
+                if (rx_sync2 == 1'b0) begin
+                    if (lin_rx_tick >= baud_div) begin
+                        lin_rx_tick <= 32'b0;
+                        if (lin_rx_low_counter < 32'hFFFF)
+                            lin_rx_low_counter <= lin_rx_low_counter + 1;
+                        if (lin_rx_low_counter >= lin_break_length && !status[7]) begin
+                            status[7] <= 1'b1;
+                            irq_status[4] <= 1'b1;
+                        end
+                    end else begin
+                        lin_rx_tick <= lin_rx_tick + 1;
+                    end
+                end else begin
+                    lin_rx_low_counter <= 32'b0;
+                    lin_rx_tick <= 32'b0;
+                end
+            end else begin
+                lin_rx_low_counter <= 32'b0;
+                lin_rx_tick <= 32'b0;
+            end
         end
     end
 
@@ -348,6 +425,8 @@ module qar_uart #(
                 4'h5: rdata = irq_status;
                 4'h6: rdata = rs485_ctrl;
                 4'h7: rdata = idle_cfg;
+                4'h8: rdata = lin_ctrl;
+                4'h9: rdata = lin_cmd;
                 default: rdata = 32'b0;
             endcase
         end

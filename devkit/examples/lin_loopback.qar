@@ -1,0 +1,28 @@
+.include "common.inc"
+
+    LUI  x5, UART_BASE_HI
+    ADDI x5, x5, UART_BASE_LO
+
+    ADDI x6, x0, 0x21      # enable + LIN mode
+    SW   x6, UART_CTRL(x5)
+
+    ADDI x6, x0, 16        # break length (in bit periods)
+    SW   x6, UART_LIN_CTRL(x5)
+
+    ADDI x6, x0, 1         # request break
+    SW   x6, UART_LIN_CMD(x5)
+
+    ADDI x7, x0, 0x80      # mask for break detected
+
+wait_break:
+    LW   x8, UART_STATUS(x5)
+    AND  x9, x8, x7
+    BEQ  x9, x0, wait_break
+
+    SW   x8, 0(x0)         # store status at DMEM[0]
+
+    ADDI x6, x0, 2         # clear break flag
+    SW   x6, UART_LIN_CMD(x5)
+
+done:
+    JAL  x0, done

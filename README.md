@@ -1,4 +1,4 @@
-# <p align="center"><img src="https://raw.githubusercontent.com/DauletBai/qar-mvp/main/devkit/web/brand/logo.svg" alt="QAR logo" width="320"></p>
+# <p align="center"><img src="https://raw.githubusercontent.com/DauletBai/qar-mvp/main/devkit/web/brand/logo.svg" alt="QAR logo" width="128"></p>
 
 # QAR-MVP — Minimal Prototype of the QAR Architecture
 
@@ -142,6 +142,12 @@ Builds the `gpio_demo` program and runs a dedicated testbench that now showcases
 ./scripts/run_uart.sh
 ```
 Builds the `uart_rs485` program and runs a loopback testbench that exercises the upgraded UART controller with parity + idle gap detection, storing the received bytes plus the idle/TX-empty interrupt snapshot into DMEM.
+
+## LIN Loopback Demo
+```sh
+./scripts/run_lin.sh
+```
+Requests a LIN-style break, verifies the break interrupt/status bits, and demonstrates the new LIN control registers by looping the UART back into itself.
 
 ## Timer / Watchdog Demo
 ```sh

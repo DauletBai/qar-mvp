@@ -16,6 +16,8 @@
 #define QAR_UART_IRQ_STATUS(base) QAR_UART_REG((base), 0x14)
 #define QAR_UART_RS485(base)      QAR_UART_REG((base), 0x18)
 #define QAR_UART_IDLE_CFG(base)   QAR_UART_REG((base), 0x1C)
+#define QAR_UART_LIN_CTRL(base)   QAR_UART_REG((base), 0x20)
+#define QAR_UART_LIN_CMD(base)    QAR_UART_REG((base), 0x24)
 
 #define QAR_UART_CTRL_ENABLE     (1u << 0)
 #define QAR_UART_CTRL_PARITY_EN  (1u << 1)
@@ -34,6 +36,7 @@
 #define QAR_UART_IRQ_TX_EMPTY    (1u << 1)
 #define QAR_UART_IRQ_ERROR       (1u << 2)
 #define QAR_UART_IRQ_IDLE        (1u << 3)
+#define QAR_UART_IRQ_LIN_BREAK   (1u << 4)
 
 static inline void qar_uart_init(uint32_t base, uint32_t baud_divider, uint32_t ctrl_flags)
 {
@@ -41,6 +44,7 @@ static inline void qar_uart_init(uint32_t base, uint32_t baud_divider, uint32_t 
     QAR_UART_CTRL(base) = ctrl_flags | QAR_UART_CTRL_ENABLE;
     QAR_UART_IRQ_EN(base) = 0x0;
     QAR_UART_IDLE_CFG(base) = 0;
+    QAR_UART_LIN_CTRL(base) = 13;
 }
 
 static inline void qar_uart_set_idle_cycles(uint32_t base, uint32_t cycles)
@@ -66,6 +70,21 @@ static inline void qar_uart_clear_irq(uint32_t base, uint32_t mask)
 static inline void qar_uart_config_rs485(uint32_t base, uint32_t value)
 {
     QAR_UART_RS485(base) = value;
+}
+
+static inline void qar_uart_lin_set_break(uint32_t base, uint32_t bit_periods)
+{
+    QAR_UART_LIN_CTRL(base) = bit_periods;
+}
+
+static inline void qar_uart_lin_request_break(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x1;
+}
+
+static inline void qar_uart_lin_clear_break(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x2;
 }
 
 static inline uint32_t qar_uart_status(uint32_t base)
