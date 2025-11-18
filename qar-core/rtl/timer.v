@@ -10,7 +10,9 @@ module qar_timer #(
     input  wire [5:0]  addr_word,
     input  wire [31:0] wdata,
     output reg  [31:0] rdata,
-    output wire        irq
+    output wire        irq,
+    output wire        pwm0,
+    output wire        pwm1
 );
 
     reg [31:0] ctrl;
@@ -213,6 +215,9 @@ module qar_timer #(
             endcase
         end
     end
+
+    assign pwm0 = pwm0_out;
+    assign pwm1 = pwm1_out;
 
 endmodule
 

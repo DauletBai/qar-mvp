@@ -13,8 +13,9 @@ The GPIO block is memory-mapped starting at `0x4000_0000` (see `devkit/examples/
 | 0x10   | OUT_CLR      | Writing 1 bits clears corresponding OUT bits. |
 | 0x14   | IRQ_EN       | Interrupt enable mask (one bit per GPIO). |
 | 0x18   | IRQ_STATUS   | Interrupt status (write-1-to-clear). |
+| 0x1C   | ALT_PWM      | Bitmask to route timer PWM outputs to GPIO pins (bit0 → pin0 uses PWM0, bit1 → pin1 uses PWM1). |
 
-All registers are 32-bit. When an input pin (DIR=0) transitions from low to high, its bit is set in `IRQ_STATUS`. If the same bit in `IRQ_EN` is 1, the GPIO block asserts its IRQ output (wired into the SoC external interrupt). Firmware clears latched bits by writing 1's to `IRQ_STATUS`.
+All registers are 32-bit. When an input pin (DIR=0) transitions from low to high, its bit is set in `IRQ_STATUS`. If the same bit in `IRQ_EN` is 1, the GPIO block asserts its IRQ output (wired into the SoC external interrupt). Firmware clears latched bits by writing 1's to `IRQ_STATUS`. Bits in `ALT_PWM` override the corresponding outputs with timer PWM channels, allowing firmware to hand off pins 0–1 to the timer peripheral without losing the original `OUT` values (they revert once the bit is cleared).
 
 ## Usage Example (Assembly)
 

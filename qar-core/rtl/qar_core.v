@@ -178,6 +178,8 @@ module qar_core #(
     wire [5:0]  timer0_addr_word = start_timer0_addr[7:2];
     wire [31:0] timer0_read_data;
     wire        timer0_irq;
+    wire        timer_pwm0;
+    wire        timer_pwm1;
 
     always @(*) begin
         if ((ICACHE_ENABLED != 0) &&
@@ -311,6 +313,8 @@ module qar_core #(
         .wdata    (start_gpio_wdata),
         .rdata    (gpio_read_data),
         .gpio_in  (gpio_in),
+        .alt_pwm0 (timer_pwm0),
+        .alt_pwm1 (timer_pwm1),
         .gpio_out (gpio_out),
         .gpio_dir (gpio_dir),
         .irq      (gpio_irq)
@@ -365,7 +369,9 @@ module qar_core #(
         .addr_word (timer0_addr_word),
         .wdata     (start_timer0_wdata),
         .rdata     (timer0_read_data),
-        .irq       (timer0_irq)
+        .irq       (timer0_irq),
+        .pwm0      (timer_pwm0),
+        .pwm1      (timer_pwm1)
     );
 
     qar_i2c i2c0 (

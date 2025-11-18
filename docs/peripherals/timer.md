@@ -34,6 +34,7 @@
 - The watchdog down-counter decrements on each prescaled tick while enabled. Writing `WDT_CTRL` with bit1 set reloads from `WDT_LOAD` and clears the latched expire status. When it reaches zero, `STATUS[2]` asserts and the timer IRQ line toggles if enabled.
 - Writing `WDT_LOAD` while the watchdog is enabled immediately reloads the counter and clears the expire flag. Setting `CTRL[0]=0` freezes both the main counter and watchdog logic.
 - PWM channels free-run alongside the main counter. Each channel asserts its output (`PWM_STATUS` bit) when `pwm_counter < duty`, wrapping back to zero after `PERIOD`. Writing a new period register resets the channel’s phase.
+- PWM0/PWM1 can be routed to GPIO pins 0 and 1 respectively by setting the corresponding bits in `GPIO_ALT_PWM`, letting firmware hand off pins to the timer without software bit-banging.
 - Manual captures take a snapshot of the main counter when firmware writes `CAPTURE_CTRL` with bit0/bit1 set. Future hardware revisions can wire `capture_ctrl` bits to external edges; for now the manual path enables deterministic testing.
 
 ## HAL and Example
