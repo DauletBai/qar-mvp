@@ -29,6 +29,7 @@ This document tracks the plan and seeds the first C sample.
 - `devkit/examples/c/timer_pwm_demo.c` routes timer PWM outputs onto GPIO pins 0/1, sweeps duty cycles, and samples capture registers for diagnostics.
 - `devkit/examples/c/i2c_loopback.c` mirrors the assembly loopback test by issuing START/WRITE/STOP sequences entirely via the I²C HAL.
 - `devkit/examples/c/spi_loopback.c` performs two byte exchanges using the SPI HAL’s loopback mode.
+- `devkit/examples/c/uart_rs485.c` shows how to configure RS-485 auto-direction and idle-gap interrupts from C.
 
 Example snippet from the GPIO demo:
 
