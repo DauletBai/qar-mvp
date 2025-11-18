@@ -55,4 +55,4 @@ wait_irq:
     JAL  x0, wait_irq
 ```
 
-See `devkit/examples/gpio_demo.qar` and `scripts/run_gpio.sh` for a runnable regression that demonstrates interrupt-enabled GPIO inputs inside simulation.
+See `devkit/examples/gpio_demo.qar` and `scripts/run_gpio.sh` for a runnable regression that demonstrates interrupt-enabled GPIO inputs inside simulation. Firmware writers can also rely on `devkit/hal/gpio.h` for inline helpers that wrap the register interface (direction, set/clear, IRQ masks, and debounce configuration) instead of poking the offsets manually.

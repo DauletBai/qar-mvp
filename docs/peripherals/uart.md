@@ -17,8 +17,9 @@
 | 0x18   | RS485_CTRL  | Bit0: auto-direction, bit1: DE polarity invert, bit2: RE polarity invert, bit3: manual DE, bit4: manual RE. |
 | 0x1C   | IDLE_CFG    | Idle gap detector in core clock cycles (0 disables detection). |
 | 0x20   | LIN_CTRL    | Programmable break length (in bit periods) for LIN mode. |
-| 0x24   | LIN_CMD     | Bit0: request break, bit1: clear LIN break status/interrupt, bit2: manually arm header capture (flushes RX FIFO and waits for break delimiter). |
-| 0x28   | LIN_HEADER  | Read-only: {ID[15:8], Sync[7:0]} captured from the most recent LIN header. |
+| 0x24   | LIN_CMD     | Bit0: request break, bit1: clear LIN break status/interrupt, bit2: manually arm header capture (flushes RX FIFO and waits for break delimiter), bit3: auto-break + header transmit (fires the LIN master sequence using `LIN_TX_ID`). |
+| 0x28   | LIN_TX_ID   | 8-bit identifier used by the auto header sequencer. |
+| 0x2C   | LIN_HEADER  | Read-only: {ID[15:8], Sync[7:0]} captured from the most recent LIN header. |
 
 ## Behaviour
 - TX/RX FIFOs buffer up to 8 bytes. The TX path now inserts parity (even/odd selectable) and one or two stop bits based on `CTRL`. `IRQ_STATUS[1]` asserts when the TX FIFO drains.  
@@ -27,7 +28,7 @@
 - When auto-direction is enabled (`RS485_CTRL[0]=1`), `rs485_de` mirrors TX activity and `rs485_re` deasserts during transmit to protect the half-duplex bus. Manual mode exposes DE/RE bits directly, plus optional polarity inversion.  
 - The aggregated UART interrupt is OR-ed into the core’s external interrupt path; clear conditions by writing `IRQ_STATUS`.  
 - CTRL[5] switches the peripheral into LIN mode: `LIN_CMD[0]` emits a programmable break (`LIN_CTRL` bit periods) and latches `STATUS[7]`/`IRQ_STATUS[4]`, while the receiver flags the same bits when it observes a long-low pulse on RX. Firmware clears the condition via `LIN_CMD[1]`. Whenever a break is detected, the RX FIFO is flushed to guarantee the next bytes belong to the new header.
-- In LIN mode, firmware can arm header capture via `LIN_CMD[2]` (or rely on automatic arm on detected breaks). Arming also clears the RX FIFO and forces the receiver to wait for the mandatory break delimiter before accepting the next start bit. The subsequent Sync/ID bytes are latched into `LIN_HEADER`, `STATUS[8]` indicates validity, `STATUS[9]` reports a sync mismatch, and `IRQ_STATUS[5]` can wake the CPU to supply or consume payload data.
+- In LIN mode, firmware can arm header capture via `LIN_CMD[2]` (or rely on automatic arm on detected breaks). Arming also clears the RX FIFO and forces the receiver to wait for the mandatory break delimiter before accepting the next start bit. The subsequent Sync/ID bytes are latched into `LIN_HEADER`, `STATUS[8]` indicates validity, `STATUS[9]` reports a sync mismatch, and `IRQ_STATUS[5]` can wake the CPU to supply or consume payload data. `LIN_CMD[3]` further automates the master role: it issues a break and transmits the Sync/ID bytes using the value written to `LIN_TX_ID`, freeing firmware from byte-by-byte bit-banging. After the header completes the CPU only needs to provide the data payload.
 
 ## HAL
 See `devkit/hal/uart.h` for the updated HAL which exposes configuration helpers for baud, parity, idle detection, interrupts, and RS-485 direction control. The `devkit/examples/uart_rs485.qar` firmware (run via `scripts/run_uart.sh`) demonstrates a full Modbus-friendly loopback: it enables parity, transmits two bytes, waits for auto-looped RX data, and stores an idle-gap interrupt snapshot in DMEM for the regression testbench.

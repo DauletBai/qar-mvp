@@ -18,7 +18,8 @@
 #define QAR_UART_IDLE_CFG(base)   QAR_UART_REG((base), 0x1C)
 #define QAR_UART_LIN_CTRL(base)   QAR_UART_REG((base), 0x20)
 #define QAR_UART_LIN_CMD(base)    QAR_UART_REG((base), 0x24)
-#define QAR_UART_LIN_HEADER(base) QAR_UART_REG((base), 0x28)
+#define QAR_UART_LIN_TX_ID(base)  QAR_UART_REG((base), 0x28)
+#define QAR_UART_LIN_HEADER(base) QAR_UART_REG((base), 0x2C)
 
 #define QAR_UART_CTRL_ENABLE     (1u << 0)
 #define QAR_UART_CTRL_PARITY_EN  (1u << 1)
@@ -95,6 +96,16 @@ static inline void qar_uart_lin_clear_break(uint32_t base)
 static inline void qar_uart_lin_arm_header(uint32_t base)
 {
     QAR_UART_LIN_CMD(base) = 0x4;
+}
+
+static inline void qar_uart_lin_set_tx_id(uint32_t base, uint8_t id)
+{
+    QAR_UART_LIN_TX_ID(base) = (uint32_t)id;
+}
+
+static inline void qar_uart_lin_start_auto_header(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x8;
 }
 
 static inline uint32_t qar_uart_lin_header(uint32_t base)

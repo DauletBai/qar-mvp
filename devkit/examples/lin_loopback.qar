@@ -9,7 +9,10 @@
     ADDI x6, x0, 16        # break length (in bit periods)
     SW   x6, UART_LIN_CTRL(x5)
 
-    ADDI x6, x0, 1         # request break
+    ADDI x6, x0, 0x3C      # LIN ID
+    SW   x6, UART_LIN_TX_ID(x5)
+
+    ADDI x6, x0, 8         # auto break + header
     SW   x6, UART_LIN_CMD(x5)
 
     ADDI x7, x0, 0x80      # mask for break detected
@@ -25,12 +28,6 @@ wait_break:
 
     ADDI x6, x0, 2         # clear break flag
     SW   x6, UART_LIN_CMD(x5)
-
-    ADDI x6, x0, 0x55
-    SW   x6, UART_DATA(x5)
-
-    ADDI x6, x0, 0x3C
-    SW   x6, UART_DATA(x5)
 
 wait_header:
     LW   x10, UART_STATUS(x5)

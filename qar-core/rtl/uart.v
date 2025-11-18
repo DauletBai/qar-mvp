@@ -107,6 +107,9 @@ module qar_uart #(
     reg        lin_sync_error;
     reg [1:0]  lin_header_state;
     reg        lin_wait_delimiter;
+    reg [7:0]  lin_tx_header_id;
+    reg        lin_auto_header_pending;
+    reg [1:0]  lin_auto_state;
 
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
@@ -169,6 +172,9 @@ module qar_uart #(
             lin_sync_error   <= 1'b0;
             lin_header_state <= 2'b00;
             lin_wait_delimiter <= 1'b0;
+            lin_tx_header_id <= 8'h00;
+            lin_auto_header_pending <= 1'b0;
+            lin_auto_state <= 2'b00;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
@@ -247,7 +253,12 @@ module qar_uart #(
                             rx_head <= rx_tail;
                             irq_status[0] <= 1'b0;
                         end
+                        if (wdata[3]) begin
+                            lin_auto_header_pending <= 1'b1;
+                            lin_break_pending <= 1'b1;
+                        end
                     end
+                    4'hA: lin_tx_header_id <= wdata[7:0];
                 endcase
             end
 
@@ -286,6 +297,10 @@ module qar_uart #(
                         tx <= 1'b1;
                         status[7] <= 1'b1;
                         irq_status[4] <= 1'b1;
+                        if (lin_auto_header_pending) begin
+                            lin_auto_state <= 2'b01;
+                            lin_auto_header_pending <= 1'b0;
+                        end
                         lin_break_pending <= 1'b0;
                     end else begin
                         lin_break_counter <= lin_break_counter + 1;
@@ -294,7 +309,19 @@ module qar_uart #(
                     lin_break_tick <= lin_break_tick + 1;
                 end
             end else if (tx_bits_remaining == 0) begin
-                if (!tx_fifo_empty) begin
+                if (lin_auto_state != 2'b00) begin
+                    tx_shift <= build_tx_frame(
+                        (lin_auto_state == 2'b01) ? 8'h55 : lin_tx_header_id,
+                        ctrl_parity_en,
+                        ctrl_parity_odd,
+                        ctrl_two_stop);
+                    tx_bits_remaining <= calc_frame_bits(ctrl_parity_en, ctrl_two_stop);
+                    tx_counter <= 0;
+                    if (lin_auto_state == 2'b01)
+                        lin_auto_state <= 2'b10;
+                    else
+                        lin_auto_state <= 2'b00;
+                end else if (!tx_fifo_empty) begin
                     tx_shift <= build_tx_frame(
                         tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]],
                         ctrl_parity_en,
@@ -477,7 +504,8 @@ module qar_uart #(
                 4'h7: rdata = idle_cfg;
                 4'h8: rdata = lin_ctrl;
                 4'h9: rdata = lin_cmd;
-                4'hA: rdata = {16'b0, lin_id_byte, lin_sync_byte};
+                4'hA: rdata = {24'b0, lin_tx_header_id};
+                4'hB: rdata = {16'b0, lin_id_byte, lin_sync_byte};
                 default: rdata = 32'b0;
             endcase
         end

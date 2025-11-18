@@ -147,7 +147,7 @@ Builds the `uart_rs485` program and runs a loopback testbench that exercises the
 ```sh
 ./scripts/run_lin.sh
 ```
-Requests a LIN-style break, verifies the break interrupt/status bits, and demonstrates the new LIN control registers by looping the UART back into itself.
+Requests a LIN-style break, verifies the break interrupt/status bits, and demonstrates the new LIN control registers by looping the UART back into itself. The demo now uses the hardware auto-header sequencer (break + Sync/ID) so firmware only needs to supply payload bytes—exactly how a BCM master would poll its LIN slaves.
 
 ## Timer / Watchdog Demo
 ```sh
