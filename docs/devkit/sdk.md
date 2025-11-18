@@ -21,9 +21,12 @@ This document tracks the plan and seeds the first C sample.
 4. **Firmware Libraries**  
    Provide basic runtime support (startup code, interrupt vector table, simple scheduler, drivers).
 
-## C Example: GPIO IRQ Demo
+## C Examples
 
-The file `devkit/examples/c/gpio_irq_demo.c` demonstrates how firmware will use the HALs:
+- `devkit/examples/c/gpio_irq_demo.c` shows how to configure GPIO outputs, enable debounced interrupts on bit 8, and blink LEDs via the GPIO/TIMER HALs.
+- `devkit/examples/c/can_loopback.c` configures CAN loopback with filter bypass/quiet mode to demonstrate how firmware can exercise the CAN HAL, poll RX FIFO entries, and toggle diagnostics modes entirely from C.
+
+Example snippet from the GPIO demo:
 
 ```c
 #include "hal/gpio.h"
@@ -49,6 +52,14 @@ Today this compiles with any host compiler (`clang -c devkit/examples/c/gpio_irq
 
 ## Next Steps
 
+- **Prototype C→HEX Flow**  
+  We need a path from C sources to QAR machine code. Near-term options under evaluation:
+  1. **LLVM/Clang backend** — leverage Clang to emit RV32I code, then adapt the backend for QAR-specific CSR/peripheral conventions; convert ELF → `.hex` via a new Go tool or `qhex`.
+  2. **C-to-assembly transpiler** — build a minimal translator that emits `.qar` (assembly) for a constrained subset of C, which can then pass through the existing `qarsim` assembler.
+  3. **Bootstrapping with RV GCC** — since QAR currently matches RV32I semantics, use an upstream RISC-V GCC/Newlib toolchain as an interim solution until a native backend is ready.
+
+  Initial experiments will focus on option 2 (faster to prototype) while we scope effort for a proper LLVM backend. Once any path can emit `.hex`, we will extend `devkit/cli` with `--c` support to compile, assemble, and (optionally) `qhex --bin` the result.
+
 - Add more C samples (CAN loopback, LIN master, timer PWM) so HAL coverage is complete.
-- Prototype a translation flow (e.g., LLVM IR → `.qar`) to validate code-gen.
+- Prototype the translation flow described above to validate code-gen.
 - Build startup/runtime scaffolding (`crt0`, vector tables) and integrate with `devkit/cli`.
