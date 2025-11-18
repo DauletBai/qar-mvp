@@ -156,6 +156,12 @@ Requests a LIN-style break, verifies the break interrupt/status bits, and demons
 Builds the `timer_demo` program and runs a testbench that configures the new timer/watchdog peripheral. The firmware proves CMP0 auto-reload and watchdog expiry handling by popping the latched status bits into DMEM for verification.
 It also exercises the manual capture registers and PWM outputs so integrators can validate the HAL before wiring timer interrupts into their firmware. PWM channels can now be routed onto GPIO pins 0–1 via the `GPIO_ALT_PWM` register, enabling direct control of external loads.
 
+## ADC Continuous/Single-Shot Demo
+```sh
+./scripts/run_adc.sh
+```
+Builds the `adc_demo` program and feeds deterministic 12-bit values into the new ADC peripheral. The testbench proves both round-robin sequencing (channels 0/1) and manual single-shot conversions (channel 2) by checking that DMEM captures the expected channel ID + sample words.
+
 ## SPI Loopback Demo
 ```sh
 ./scripts/run_spi.sh

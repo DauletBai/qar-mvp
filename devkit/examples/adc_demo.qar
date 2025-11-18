@@ -1,0 +1,48 @@
+.include "common.inc"
+
+    LUI  x5, ADC_BASE_HI
+    ADDI x5, x5, ADC_BASE_LO
+
+    ADDI x6, x0, 3          # enable + continuous mode
+    SW   x6, ADC_CTRL(x5)
+
+    ADDI x6, x0, 3          # monitor channels 0 and 1
+    SW   x6, ADC_SEQ_MASK(x5)
+
+    ADDI x6, x0, 4          # small sample divider
+    SW   x6, ADC_SAMPLE_DIV(x5)
+
+    ADDI x15, x0, 2         # data-ready mask
+
+wait_cont0:
+    LW   x7, ADC_STATUS(x5)
+    AND  x8, x7, x15
+    BEQ  x8, x0, wait_cont0
+
+    LW   x9, ADC_RESULT(x5)
+    SW   x9, 0(x0)
+
+wait_cont1:
+    LW   x7, ADC_STATUS(x5)
+    AND  x8, x7, x15
+    BEQ  x8, x0, wait_cont1
+
+    LW   x9, ADC_RESULT(x5)
+    SW   x9, 4(x0)
+
+    ADDI x6, x0, 1          # disable continuous, keep enable set
+    SW   x6, ADC_CTRL(x5)
+
+    ADDI x6, x0, 37         # channel=2, start conversion
+    SW   x6, ADC_CTRL(x5)
+
+wait_single:
+    LW   x7, ADC_STATUS(x5)
+    AND  x8, x7, x15
+    BEQ  x8, x0, wait_single
+
+    LW   x9, ADC_RESULT(x5)
+    SW   x9, 8(x0)
+
+done:
+    JAL  x0, done

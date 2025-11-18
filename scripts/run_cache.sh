@@ -25,6 +25,7 @@ iverilog -o qar_core_cache_tb.out \
     qar-core/rtl/i2c.v \
     qar-core/rtl/can.v \
     qar-core/rtl/timer.v \
+    qar-core/rtl/adc.v \
     qar-core/rtl/qar_core.v \
     qar-core/sim/qar_core_cache_tb.v
 

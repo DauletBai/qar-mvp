@@ -1,9 +1,9 @@
 `timescale 1ns / 1ps
 
-module qar_core_gpio_tb();
+module qar_core_adc_tb();
 
-    localparam IMEM_WORDS      = 64;
-    localparam DMEM_WORDS      = 64;
+    localparam IMEM_WORDS = 64;
+    localparam DMEM_WORDS = 64;
     localparam IMEM_ADDR_WIDTH = 6;
     localparam DMEM_ADDR_WIDTH = 6;
 
@@ -26,20 +26,16 @@ module qar_core_gpio_tb();
     wire        irq_external_ack;
     wire [31:0] gpio_out;
     wire [31:0] gpio_dir;
-    reg  [31:0] gpio_in;
+    wire [31:0] gpio_in = 32'b0;
+    wire        gpio_irq;
     wire        uart_tx;
-    reg         uart_rx = 1'b1;
     wire        uart_de;
     wire        uart_re;
-    wire        spi_sck;
-    wire        spi_mosi;
-    wire        spi_miso = 1'b1;
-    wire [3:0]  spi_cs_n;
-    wire        i2c_scl;
-    wire        i2c_sda_out;
-    wire        i2c_sda_oe;
-    wire        i2c_sda_loop;
-    wire        gpio_irq;
+
+    localparam [11:0] ADC_CH0_VAL = 12'h145;
+    localparam [11:0] ADC_CH1_VAL = 12'h2A7;
+    localparam [11:0] ADC_CH2_VAL = 12'h3E1;
+    localparam [11:0] ADC_CH3_VAL = 12'h055;
 
     qar_core #(
         .IMEM_DEPTH(IMEM_WORDS),
@@ -68,35 +64,32 @@ module qar_core_gpio_tb();
         .gpio_dir(gpio_dir),
         .gpio_irq(gpio_irq),
         .uart_tx(uart_tx),
-        .uart_rx(uart_rx),
+        .uart_rx(uart_tx),
         .uart_de(uart_de),
         .uart_re(uart_re),
-        .spi_sck(spi_sck),
-        .spi_mosi(spi_mosi),
-        .spi_miso(spi_miso),
-        .spi_cs_n(spi_cs_n),
-        .i2c_scl(i2c_scl),
-        .i2c_sda_out(i2c_sda_out),
-        .i2c_sda_in(i2c_sda_loop),
-        .i2c_sda_oe(i2c_sda_oe),
-        .adc_ch0(12'd0),
-        .adc_ch1(12'd0),
-        .adc_ch2(12'd0),
-        .adc_ch3(12'd0)
+        .spi_sck(),
+        .spi_mosi(),
+        .spi_miso(1'b1),
+        .spi_cs_n(),
+        .i2c_scl(),
+        .i2c_sda_out(),
+        .i2c_sda_in(1'b1),
+        .i2c_sda_oe(),
+        .adc_ch0(ADC_CH0_VAL),
+        .adc_ch1(ADC_CH1_VAL),
+        .adc_ch2(ADC_CH2_VAL),
+        .adc_ch3(ADC_CH3_VAL)
     );
-
-    assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
 
     reg [31:0] imem [0:IMEM_WORDS-1];
     reg [31:0] dmem [0:DMEM_WORDS-1];
 
     initial begin
-        $display("=== QAR-Core GPIO Demo ===");
-        $readmemh("program_gpio.hex", imem);
-        $readmemh("data_gpio.hex", dmem);
+        $display("=== QAR-Core ADC Demo ===");
+        $readmemh("program_adc.hex", imem);
+        $readmemh("data_adc.hex", dmem);
         imem_ready = 0;
         mem_ready  = 0;
-        gpio_in    = 32'h0000_0000;
         rst_n = 0;
         #40;
         rst_n = 1;
@@ -122,27 +115,24 @@ module qar_core_gpio_tb();
     end
 
     initial begin
-        gpio_in = 32'h0;
-        #100000;
-        gpio_in[8] = 1'b1;
-        #1000;
-        gpio_in[8] = 1'b0;
-    end
+        #400000;
+        $display("DMEM[0] = 0x%08h (expect ch0 sample)", dmem[0]);
+        $display("DMEM[1] = 0x%08h (expect ch1 sample)", dmem[1]);
+        $display("DMEM[2] = 0x%08h (expect ch2 sample)", dmem[2]);
 
-    initial begin
-        #200000;
-        $display("GPIO dir = 0x%08h", gpio_dir);
-        if (gpio_dir !== 32'h0000_00FF) begin
-            $display("ERROR: GPIO direction mismatch");
+        if (dmem[0] !== 32'h0000_0145) begin
+            $display("ERROR: ADC channel0 mismatch");
             $finish;
         end
-        $display("DMEM[1] = 0x%08h (expected 0x00000100)", dmem[1]);
-        if (dmem[1] !== 32'h0000_0100) begin
-            $display("ERROR: GPIO interrupt status mismatch");
+        if (dmem[1] !== 32'h0001_02A7) begin
+            $display("ERROR: ADC channel1 mismatch");
             $finish;
         end
-
-        $display("GPIO demo completed.");
+        if (dmem[2] !== 32'h0002_03E1) begin
+            $display("ERROR: ADC channel2 mismatch");
+            $finish;
+        end
+        $display("ADC demo completed.");
         $finish;
     end
 

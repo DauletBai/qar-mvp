@@ -81,7 +81,11 @@ module qar_core_i2c_tb();
         .i2c_scl(i2c_scl),
         .i2c_sda_out(i2c_sda_out),
         .i2c_sda_in(i2c_sda_loop),
-        .i2c_sda_oe(i2c_sda_oe)
+        .i2c_sda_oe(i2c_sda_oe),
+        .adc_ch0(12'd0),
+        .adc_ch1(12'd0),
+        .adc_ch2(12'd0),
+        .adc_ch3(12'd0)
     );
 
     reg [31:0] imem [0:IMEM_WORDS-1];

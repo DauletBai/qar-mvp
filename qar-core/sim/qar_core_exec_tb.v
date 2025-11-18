@@ -89,7 +89,11 @@ module qar_core_exec_tb();
         .i2c_scl(i2c_scl),
         .i2c_sda_out(i2c_sda_out),
         .i2c_sda_in(i2c_sda_loop),
-        .i2c_sda_oe(i2c_sda_oe)
+        .i2c_sda_oe(i2c_sda_oe),
+        .adc_ch0(12'd0),
+        .adc_ch1(12'd0),
+        .adc_ch2(12'd0),
+        .adc_ch3(12'd0)
     );
 
     assign i2c_sda_loop = i2c_sda_oe ? i2c_sda_out : 1'b1;
