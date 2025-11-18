@@ -54,3 +54,41 @@ Parallel work on Option 1 can proceed (for tighter control) but Option 2 gives i
 4. Keep adding HAL demos so we can test the C flow once toolchain is ready.
 
 This file will track progress on the prototype.
+
+## Usage Instructions
+
+1. **Build `elf2qar` once**
+   ```sh
+   cd devkit/tools/elf2qar
+   make
+   ```
+   The binary (`devkit/tools/elf2qar/elf2qar`) is used by `qarsim --c`.
+
+2. **Install a RISC-V GCC toolchain**
+   ```
+   brew tap riscv-software-src/riscv
+   brew install riscv-gnu-toolchain
+   ```
+   Ensure `riscv32-unknown-elf-gcc` is on `PATH`, or export `QAR_CC` to point at your compiler.
+
+3. **Build from C via qarsim**
+   ```sh
+   go run ./devkit/cli build \
+       --c devkit/examples/c/gpio_irq_demo.c \
+       --program program.hex \
+       --data-out data.hex \
+       --imem 128 \
+       --dmem 128
+   ```
+   This invokes `QAR_CC` → generates an ELF → runs `elf2qar` → writes hex images.
+
+4. **Optional run shortcut**
+   ```sh
+   go run ./devkit/cli run --c devkit/examples/c/can_loopback.c --script ./scripts/run_can.sh
+   ```
+   `qarsim` handles the C build before executing the Verilog regression script.
+
+## Notes
+
+- The linker script (`devkit/cli/linker.ld`) currently maps IMEM at `0x00000000` and DMEM at `0x2000_0000`. Adjust as the SoC evolves.
+- `elf2qar` zero-fills up to `--imem/--dmem` words; keep these in sync with your simulation configuration.
