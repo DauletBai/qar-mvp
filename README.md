@@ -116,6 +116,7 @@ See `docs/devkit/qhex.md` for more details.
 - `devkit/examples/irq_demo.qar` — sets up `mtvec/mie/mtimecmp`, handles timer + external interrupts, and validates ECALL/MRET flows.
 - `devkit/examples/c/gpio_irq_demo.c` — first C/HAL example that configures GPIO IRQs; see `docs/devkit/sdk.md` for the SDK roadmap.
 - `devkit/examples/c/can_loopback.c` — C-based CAN loopback sample using the new quiet/filter-bypass controls.
+- `devkit/examples/c/lin_auto_header.c` — demonstrates the UART HAL’s LIN auto-header sequence from C firmware.
 
 ## Tools Required
 

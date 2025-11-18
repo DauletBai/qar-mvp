@@ -25,6 +25,7 @@ This document tracks the plan and seeds the first C sample.
 
 - `devkit/examples/c/gpio_irq_demo.c` shows how to configure GPIO outputs, enable debounced interrupts on bit 8, and blink LEDs via the GPIO/TIMER HALs.
 - `devkit/examples/c/can_loopback.c` configures CAN loopback with filter bypass/quiet mode to demonstrate how firmware can exercise the CAN HAL, poll RX FIFO entries, and toggle diagnostics modes entirely from C.
+- `devkit/examples/c/lin_auto_header.c` drives the UART HAL’s LIN auto-break/auto-header path so firmware can issue LIN master headers without manual byte-by-byte assembly.
 
 Example snippet from the GPIO demo:
 
