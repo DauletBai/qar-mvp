@@ -12,6 +12,75 @@ This document captures the actionable hardware plan derived from the latest read
 2. **Evaluation kit** – give Allur, Kia Qazaqstan, UzAuto, ERG etc. a box they can bench-test without building their own board first.
 3. **Bridge to ASIC** – freeze the pinout/peripheral mix so the eventual silicon layout is straightforward.
 
+## Functional Block Diagram
+
+```mermaid
+graph TD
+    subgraph "External Interfaces"
+        PowerIn[("Power Input\n9-36V DC")]
+        USB[("USB-C\n(Debug/Flash)")]
+        Terminals_IO[("GPIO Terminals\n(Relays/Sensors)")]
+        Terminals_RS485[("RS-485 Terminal\n(Modbus)")]
+        Terminals_CAN[("CAN Terminal\n(OBD-II / Auto)")]
+    end
+
+    subgraph "Power Management"
+        Protection[("Protection (TVS, Fuse)")]
+        DC_DC[("DC/DC Converter\n(24V -> 5V/3.3V/1.2V)")]
+    end
+
+    subgraph "Printed Circuit Board"
+        subgraph "FPGA (Lattice ECP5 / Gowin)"
+            direction TB
+            QAR_Core[("QAR-Core v0.7\n(RV32IM + IRQ)")]
+
+            subgraph "On-Chip Interconnect"
+                AXI[("AXI-Lite\n(Memory)")]
+                APB[("APB-Lite\n(Peripherals)")]
+            end
+
+            subgraph "Peripheral Controllers (RTL)"
+                GPIO_Ctrl[("GPIO + Debounce")]
+                UART_Ctrl[("UART0 Debug")]
+                RS485_Ctrl[("UART1 RS-485\n+ DE/RE")]
+                CAN_Ctrl[("CAN 2.0B")]
+                Timer_Ctrl[("Timers / PWM")]
+                SPI_Ctrl[("SPI Master")]
+            end
+
+            QAR_Core <--> AXI
+            QAR_Core <--> APB
+            APB <--> GPIO_Ctrl
+            APB <--> UART_Ctrl
+            APB <--> RS485_Ctrl
+            APB <--> CAN_Ctrl
+            APB <--> Timer_Ctrl
+            AXI <--> SPI_Ctrl
+        end
+
+        subgraph "PHY & Isolation"
+            Flash[("QSPI Flash")]
+            USB_UART[("USB-UART Bridge")]
+            RS485_PHY[("RS-485 Transceiver")]
+            CAN_PHY[("CAN Transceiver")]
+            Opto[("Isolation / MOSFET Stages")]
+        end
+    end
+
+    PowerIn --> Protection --> DC_DC
+    DC_DC ==> FPGA
+    DC_DC ==> Flash
+    DC_DC ==> CAN_PHY
+
+    USB <--> USB_UART <--> UART_Ctrl
+    Flash <--> SPI_Ctrl
+    GPIO_Ctrl <--> Opto <--> Terminals_IO
+    RS485_Ctrl <--> RS485_PHY <--> Terminals_RS485
+    CAN_Ctrl <--> CAN_PHY <--> Terminals_CAN
+```
+
+This functional block diagram (sourced from the Gemini 3 Pro analysis) now lives inside the plan so hardware engineers see the logical partitioning before schematic capture.
+
 ## Architecture Overview
 
 | Block | Implementation | Notes |
