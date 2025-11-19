@@ -16,6 +16,7 @@
 #define QAR_I2C_TXDATA(base)   QAR_I2C_REG((base), 0x14)
 #define QAR_I2C_RXDATA(base)   QAR_I2C_REG((base), 0x18)
 #define QAR_I2C_CMD(base)      QAR_I2C_REG((base), 0x1C)
+#define QAR_I2C_FAULT_STATUS(base) QAR_I2C_REG((base), 0x20)
 
 #define QAR_I2C_CTRL_ENABLE    (1u << 0)
 
@@ -57,6 +58,11 @@ static inline void qar_i2c_issue_cmd(uint32_t base, uint32_t cmd)
 static inline uint8_t qar_i2c_pop_rx(uint32_t base)
 {
     return (uint8_t)(QAR_I2C_RXDATA(base) & 0xFF);
+}
+
+static inline uint32_t qar_i2c_fault_status(uint32_t base)
+{
+    return QAR_I2C_FAULT_STATUS(base);
 }
 
 #endif /* QAR_HAL_I2C_H */

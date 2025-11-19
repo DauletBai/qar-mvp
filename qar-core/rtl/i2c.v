@@ -38,6 +38,9 @@ module qar_i2c #(
     reg        ack_error_flag;
     reg        rx_overflow_flag;
     reg        tx_overflow_flag;
+    reg [2:0]  last_fault_code;
+    reg [2:0]  last_fault_cmd;
+    reg [7:0]  last_fault_byte;
 
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
@@ -78,6 +81,7 @@ module qar_i2c #(
     wire tx_empty_flag = (tx_head == tx_tail);
 
     wire [31:0] status_value = {26'b0, tx_overflow_flag, rx_overflow_flag, ack_error_flag, tx_empty_flag, rx_ready_flag, busy_flag};
+    wire [31:0] fault_status_value = {8'b0, last_fault_byte, 4'b0, last_fault_cmd, last_fault_code, ack_error_flag, rx_overflow_flag, tx_overflow_flag, 3'b0};
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -89,6 +93,9 @@ module qar_i2c #(
             ack_error_flag <= 1'b0;
             rx_overflow_flag <= 1'b0;
             tx_overflow_flag <= 1'b0;
+            last_fault_code <= 3'd0;
+            last_fault_cmd  <= 3'd0;
+            last_fault_byte <= 8'd0;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
@@ -137,6 +144,9 @@ module qar_i2c #(
                             tx_overflow_flag <= 1'b1;
                             irq_status[2] <= 1'b1;
                             irq_status[3] <= 1'b1;
+                            last_fault_code <= 3'd1;
+                            last_fault_cmd <= 3'd2;
+                            last_fault_byte <= wdata[7:0];
                         end
                     end
                     6'h7: cmd_reg <= wdata;
@@ -160,6 +170,7 @@ module qar_i2c #(
                             cmd_reg[0] <= 1'b0;
                             sda_drive <= 1'b1;
                             sda_state <= 1'b0;
+                            last_fault_cmd <= 3'd1;
                             state <= STATE_START;
                         end else if (cmd_reg[2] && !tx_fifo_empty) begin
                             cmd_reg[2] <= 1'b0;
@@ -169,17 +180,20 @@ module qar_i2c #(
                             sda_drive <= 1'b1;
                             sda_state <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]][7];
                             scl_state <= 1'b0;
+                            last_fault_cmd <= 3'd2;
                             state <= STATE_WRITE;
                         end else if (cmd_reg[3]) begin
                             cmd_reg[3] <= 1'b0;
                             bit_index <= 4'd7;
                             sda_drive <= 1'b0;
                             scl_state <= 1'b0;
+                            last_fault_cmd <= 3'd3;
                             state <= STATE_READ;
                         end else if (cmd_reg[1]) begin
                             cmd_reg[1] <= 1'b0;
                             sda_drive <= 1'b1;
                             sda_state <= 1'b0;
+                            last_fault_cmd <= 3'd4;
                             state <= STATE_STOP;
                         end
                     end
@@ -222,6 +236,8 @@ module qar_i2c #(
                                 ack_error_flag <= 1'b1;
                                 irq_status[2] <= 1'b1;
                                 irq_status[5] <= 1'b1;
+                                last_fault_code <= 3'd3;
+                                last_fault_byte <= shift_reg;
                             end
                         end else begin
                             state <= STATE_IDLE;
@@ -247,6 +263,8 @@ module qar_i2c #(
                                     rx_overflow_flag <= 1'b1;
                                     irq_status[2] <= 1'b1;
                                     irq_status[4] <= 1'b1;
+                                    last_fault_code <= 3'd2;
+                                    last_fault_byte <= shift_reg;
                                 end
                                 state <= STATE_IDLE;
                             end else begin
@@ -284,6 +302,7 @@ module qar_i2c #(
                 6'h5: rdata = 32'b0;
                 6'h6: rdata = {24'b0, rx_fifo[rx_tail[FIFO_ADDR_BITS-1:0]]};
                 6'h7: rdata = cmd_reg;
+                6'h8: rdata = fault_status_value;
                 default: rdata = 32'b0;
             endcase
         end

@@ -1,12 +1,24 @@
 #ifndef QAR_SDK_HAL_INIT_H
 #define QAR_SDK_HAL_INIT_H
 
-#include "hal/uart.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-static inline void qar_sdk_init(void)
-{
-    /* Example init: ensure UART idle IRQs are disabled at boot. */
-    qar_uart_disable_irq(QAR_UART0_BASE, 0xFFFFFFFFu);
+/*
+ * qar_sdk_init()
+ *
+ * Default hardware-abstraction bootstrap entry point that is invoked
+ * automatically by the SDK runtime before main(). The implementation
+ * (see devkit/sdk/hal_init.c) programs safe reset values for GPIO, UART,
+ * timers, CAN, SPI, I2C, and ADC peripherals so that C firmware always
+ * starts from a known state. Firmware may override this symbol by
+ * providing its own qar_sdk_init definition.
+ */
+void qar_sdk_init(void);
+
+#ifdef __cplusplus
 }
+#endif
 
 #endif /* QAR_SDK_HAL_INIT_H */

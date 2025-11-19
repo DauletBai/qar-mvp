@@ -25,11 +25,21 @@ func buildFromC(cfg *buildConfig) error {
 		cc = "riscv32-unknown-elf-gcc"
 	}
 	extraFlags := []string{}
+	ldFlags := []string{}
 	if envFlags := os.Getenv("QAR_CFLAGS"); envFlags != "" {
 		extraFlags = append(extraFlags, strings.Fields(envFlags)...)
 	}
 	if cfg.cFlags != "" {
 		extraFlags = append(extraFlags, strings.Fields(cfg.cFlags)...)
+	}
+	if envLd := os.Getenv("QAR_LDFLAGS"); envLd != "" {
+		ldFlags = append(ldFlags, strings.Fields(envLd)...)
+	}
+	if cfg.ldFlags != "" {
+		ldFlags = append(ldFlags, strings.Fields(cfg.ldFlags)...)
+	}
+	if len(cfg.cPaths) > 0 {
+		fmt.Printf("Compiling %d C source(s): %s\n", len(cfg.cPaths), strings.Join(cfg.cPaths, ", "))
 	}
 	args := []string{
 		"-Os",
@@ -39,12 +49,15 @@ func buildFromC(cfg *buildConfig) error {
 		"-mabi=ilp32",
 		"-T", "devkit/cli/linker.ld",
 		"devkit/sdk/crt0.S",
+		"devkit/sdk/runtime.c",
+		"devkit/sdk/hal_init.c",
 		"-I", "devkit",
 		"-o", elfPath,
 	}
 
 	args = append(args, cfg.cPaths...)
 	args = append(args, extraFlags...)
+	args = append(args, ldFlags...)
 	cmd := exec.Command(cc, args...)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

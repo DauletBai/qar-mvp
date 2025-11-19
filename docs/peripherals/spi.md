@@ -15,12 +15,13 @@
 | 0x14   | CS_SELECT   | Bitmask of asserted chip-select lines (four CS pins, active low). |
 | 0x18   | IRQ_EN      | Interrupt enables (bit0 RX ready, bit1 TX empty, bit2 any fault, bit3 TX overflow, bit4 RX overflow, bit5 invalid CS). |
 | 0x1C   | IRQ_STATUS  | Interrupt status (write-1-to-clear; bit2 mirrors the OR of bits3–5 for legacy firmware). |
+| 0x20   | FAULT_STATUS| Sticky diagnostics: bits[23:16] = last byte involved in a fault, bits[11:8] = last CS mask, bits[7:5] = cause code (1=TX overflow, 2=RX overflow, 3=invalid CS), bits[4:2] mirror the current fault flags. |
 
 ## Behaviour
 - Up to four chip-select lines can be asserted simultaneously; the controller keeps them low for the duration of an 8-bit transfer and releases them when the byte completes.  
 - TX/RX FIFOs (depth = 4 bytes) decouple the CPU from shift timing. While the FIFO is empty, the TX-empty interrupt (bit1) can be used to queue more data.  
 - RX FIFO pushes raise `IRQ_STATUS[0]`; firmware must read `RXDATA` until the FIFO empties to clear the bit.  
-- Fault bits latch when firmware writes to TXDATA while the FIFO is full (bit4), when the RX FIFO overflows (bit5), or when a transfer is attempted with `CS_SELECT=0` (bit6). `STATUS[3]` mirrors the OR of those events for simple polling, while `IRQ_STATUS` exposes per-cause interrupts so firmware can take targeted recovery actions.  
+- Fault bits latch when firmware writes to TXDATA while the FIFO is full (bit4), when the RX FIFO overflows (bit5), or when a transfer is attempted with `CS_SELECT=0` (bit6). `STATUS[3]` mirrors the OR of those events for simple polling, while `IRQ_STATUS` exposes per-cause interrupts so firmware can take targeted recovery actions. The new `FAULT_STATUS` register records which byte/CS combination triggered the most recent fault so firmware can log or replay the event.  
 - Current implementation supports polled transfers; future work will add automatic per-transfer CS toggling and DMA hooks.
 
 ## Example

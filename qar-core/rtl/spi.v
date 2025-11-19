@@ -40,6 +40,9 @@ module qar_spi #(
     reg        tx_overflow_flag;
     reg        rx_overflow_flag;
     reg        cs_error_flag;
+    reg [2:0]  last_fault_code;
+    reg [7:0]  last_fault_byte;
+    reg [3:0]  last_fault_cs;
 
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
     reg [7:0]  tx_fifo [0:FIFO_DEPTH-1];
@@ -76,6 +79,7 @@ module qar_spi #(
     wire fault_flag = tx_overflow_flag | rx_overflow_flag | cs_error_flag;
 
     wire [31:0] status_value = {25'b0, cs_error_flag, rx_overflow_flag, tx_overflow_flag, fault_flag, busy, rx_ready, tx_ready};
+    wire [31:0] fault_status_value = {8'b0, last_fault_byte, 4'b0, last_fault_cs, last_fault_code, cs_error_flag, rx_overflow_flag, tx_overflow_flag, 2'b0};
 
     assign irq = |(irq_en[5:0] & irq_status[5:0]);
 
@@ -96,6 +100,9 @@ module qar_spi #(
             tx_overflow_flag <= 1'b0;
             rx_overflow_flag <= 1'b0;
             cs_error_flag <= 1'b0;
+            last_fault_code <= 3'd0;
+            last_fault_byte <= 8'd0;
+            last_fault_cs <= 4'd0;
             tx_head    <= 0;
             tx_tail    <= 0;
             rx_head    <= 0;
@@ -140,6 +147,9 @@ module qar_spi #(
                             tx_overflow_flag <= 1'b1;
                             irq_status[2] <= 1'b1;
                             irq_status[3] <= 1'b1;
+                            last_fault_code <= 3'd1;
+                            last_fault_byte <= wdata[7:0];
+                            last_fault_cs <= cs_select[3:0];
                         end
                     end
                     default: ;
@@ -159,6 +169,9 @@ module qar_spi #(
                     cs_error_flag <= 1'b1;
                     irq_status[2] <= 1'b1;
                     irq_status[5] <= 1'b1;
+                    last_fault_code <= 3'd3;
+                    last_fault_byte <= tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]];
+                    last_fault_cs <= 4'b0000;
                 end else begin
                     busy      <= 1'b1;
                     cs_active <= cs_select[3:0];
@@ -196,6 +209,9 @@ module qar_spi #(
                                 rx_overflow_flag <= 1'b1;
                                 irq_status[2] <= 1'b1;
                                 irq_status[4] <= 1'b1;
+                                last_fault_code <= 3'd2;
+                                last_fault_byte <= ctrl_loopback ? active_tx_byte : rx_shift_combined;
+                                last_fault_cs <= cs_active;
                             end
                         end else begin
                             bit_index <= bit_index - 1;
@@ -228,6 +244,7 @@ module qar_spi #(
                 6'h5: rdata = cs_select;
                 6'h6: rdata = irq_en;
                 6'h7: rdata = irq_status;
+                6'h8: rdata = fault_status_value;
                 default: rdata = 32'b0;
             endcase
         end

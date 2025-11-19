@@ -88,6 +88,29 @@ This file will track progress on the prototype.
    ```
    `qarsim` handles the C build before executing the Verilog regression script.
 
+## Multi-file builds and linker flags
+
+Repeat `--c` to add multiple translation units (they will all be compiled and linked together).
+If you need to pull in libraries or custom sections, pass linker options via `--ldflags`
+or set the `QAR_LDFLAGS` environment variable so every build inherits them.
+Example (two C files + math library):
+```sh
+go run ./devkit/cli build \
+    --c devkit/examples/c/gpio_irq_demo.c \
+    --c devkit/examples/c/helper.c \
+    --ldflags "-lm"
+```
+
+## Automatic HAL bootstrap
+
+`qarsim --c` links three SDK sources by default: `crt0.S`, `runtime.c`, and `hal_init.c`.
+`runtime.c` installs a constructor that invokes `qar_sdk_init()` before `main()`, and
+`hal_init.c` now implements that symbol by driving every integrated peripheral into a
+known state (GPIO set to inputs, UART/CAN/SPI/I²C IRQs masked, timers/PWM/ADC reset,
+RS-485/LIN defaults, etc.). If firmware wants a different policy it can simply provide
+its own non-weak `qar_sdk_init()`; the constructor will call the override instead of the
+default.
+
 ## Notes
 
 - The linker script (`devkit/cli/linker.ld`) currently maps IMEM at `0x00000000` and DMEM at `0x2000_0000`. Adjust as the SoC evolves.

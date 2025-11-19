@@ -26,6 +26,7 @@ type buildConfig struct {
 	cPaths     []string
 	cCompiler  string
 	cFlags     string
+	ldFlags    string
 	dataPath   string
 	programOut string
 	dataOut    string
@@ -156,7 +157,7 @@ func main() {
 func usage() {
 	fmt.Fprintf(os.Stderr, "Usage: qarsim <build|run> [options]\n")
 	fmt.Fprintf(os.Stderr, "Use --asm <file> to point at the .qar assembly, or --c <file> to point at a C source.\n")
-	fmt.Fprintf(os.Stderr, "Use --cc to override the C compiler (default riscv32-unknown-elf-gcc) and --cflags to append extra C flags.\n")
+	fmt.Fprintf(os.Stderr, "Use --cc to override the C compiler, --cflags for extra compile flags, and --ldflags for linker flags.\n")
 	os.Exit(1)
 }
 
@@ -173,6 +174,7 @@ func defaultBuildFlagSet(name string) (*flag.FlagSet, *buildConfig) {
 	})
 	fs.StringVar(&cfg.cCompiler, "cc", "", "C compiler for --c (default riscv32-unknown-elf-gcc or QAR_CC env)")
 	fs.StringVar(&cfg.cFlags, "cflags", "", "Extra C compiler flags (appended after QAR_CFLAGS)")
+	fs.StringVar(&cfg.ldFlags, "ldflags", "", "Extra linker flags (appended after QAR_LDFLAGS)")
 	fs.StringVar(&cfg.dataPath, "data", "", "Path to data description file (optional)")
 	fs.StringVar(&cfg.programOut, "program", "program.hex", "Output path for program hex")
 	fs.StringVar(&cfg.dataOut, "data-out", "data.hex", "Output path for data hex")
@@ -211,6 +213,9 @@ func runRun(args []string) {
 func doBuild(cfg *buildConfig) error {
 	if len(cfg.asmPaths) == 0 && len(cfg.cPaths) == 0 {
 		return errors.New("--asm or --c is required")
+	}
+	if len(cfg.asmPaths) > 0 && len(cfg.cPaths) > 0 {
+		return errors.New("choose either assembly (--asm) or C (--c) inputs, not both in the same build")
 	}
 	if cfg.imemDepth <= 0 {
 		return errors.New("imem depth must be positive")

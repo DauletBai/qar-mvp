@@ -101,6 +101,7 @@ module qar_uart #(
     reg [31:0] idle_cfg;
     reg [31:0] lin_ctrl;
     reg [31:0] lin_cmd;
+    reg [31:0] lin_slave_ctrl;
     reg [7:0]  lin_sync_byte;
     reg [7:0]  lin_id_byte;
     reg        lin_header_valid;
@@ -110,6 +111,10 @@ module qar_uart #(
     reg [7:0]  lin_tx_header_id;
     reg        lin_auto_header_pending;
     reg [1:0]  lin_auto_state;
+    reg        lin_slave_armed;
+    reg        lin_slave_tx_pending;
+    reg [7:0]  lin_slave_bytes_remaining;
+    reg        lin_slave_underflow;
 
     reg [7:0] tx_fifo [0:FIFO_DEPTH-1];
     reg [FIFO_ADDR_BITS:0] tx_head, tx_tail;
@@ -154,6 +159,11 @@ module qar_uart #(
     wire ctrl_two_stop   = ctrl[3];
     wire ctrl_lin_mode   = ctrl[5];
     wire [15:0] lin_break_length = (lin_ctrl[15:0] == 16'd0) ? 16'd13 : lin_ctrl[15:0];
+    wire        lin_slave_enable   = lin_slave_ctrl[16];
+    wire [7:0] lin_slave_match_id  = lin_slave_ctrl[15:8];
+    wire [7:0] lin_slave_resp_len  = lin_slave_ctrl[7:0];
+    wire        lin_slave_gate_block = lin_slave_enable && lin_slave_armed && !lin_slave_tx_pending;
+
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
@@ -175,6 +185,11 @@ module qar_uart #(
             lin_tx_header_id <= 8'h00;
             lin_auto_header_pending <= 1'b0;
             lin_auto_state <= 2'b00;
+            lin_slave_ctrl <= 32'b0;
+            lin_slave_armed <= 1'b0;
+            lin_slave_tx_pending <= 1'b0;
+            lin_slave_bytes_remaining <= 8'd0;
+            lin_slave_underflow <= 1'b0;
             tx_head     <= 0;
             tx_tail     <= 0;
             rx_head     <= 0;
@@ -230,6 +245,9 @@ module qar_uart #(
                             idle_irq_pending <= 1'b0;
                             idle_counter <= 32'b0;
                         end
+                        if (wdata[6]) begin
+                            lin_slave_underflow <= 1'b0;
+                        end
                     end
                     4'h6: rs485_ctrl <= wdata;
                     4'h7: idle_cfg <= wdata;
@@ -257,8 +275,31 @@ module qar_uart #(
                             lin_auto_header_pending <= 1'b1;
                             lin_break_pending <= 1'b1;
                         end
+                        if (wdata[4]) begin
+                            lin_slave_underflow <= 1'b0;
+                            if (lin_slave_enable && lin_slave_resp_len != 8'd0) begin
+                                lin_slave_armed <= 1'b1;
+                                lin_slave_tx_pending <= 1'b0;
+                            end else begin
+                                lin_slave_armed <= 1'b0;
+                                lin_slave_tx_pending <= 1'b0;
+                            end
+                        end
+                        if (wdata[5]) begin
+                            lin_slave_armed <= 1'b0;
+                            lin_slave_tx_pending <= 1'b0;
+                            lin_slave_underflow <= 1'b0;
+                        end
                     end
                     4'hA: lin_tx_header_id <= wdata[7:0];
+                    4'hC: begin
+                        lin_slave_ctrl <= wdata;
+                        if (!wdata[16]) begin
+                            lin_slave_armed <= 1'b0;
+                            lin_slave_tx_pending <= 1'b0;
+                            lin_slave_underflow <= 1'b0;
+                        end
+                    end
                 endcase
             end
 
@@ -275,9 +316,11 @@ module qar_uart #(
             status[4] <= (tx_bits_remaining != 0) || lin_break_active;
             status[8] <= lin_header_valid;
             status[9] <= lin_sync_error;
+            status[10] <= lin_slave_tx_pending;
+            status[11] <= lin_slave_underflow;
 
             if (ctrl_lin_mode && !lin_break_active && lin_break_pending && ctrl_enable &&
-                tx_bits_remaining == 0 && tx_fifo_empty) begin
+                tx_bits_remaining == 0 && (tx_fifo_empty || lin_slave_gate_block)) begin
                 lin_break_active <= 1'b1;
                 lin_break_pending <= 1'b0;
                 lin_break_counter <= 32'b0;
@@ -321,7 +364,11 @@ module qar_uart #(
                         lin_auto_state <= 2'b10;
                     else
                         lin_auto_state <= 2'b00;
-                end else if (!tx_fifo_empty) begin
+                end else if (lin_slave_tx_pending && tx_fifo_empty) begin
+                    lin_slave_tx_pending <= 1'b0;
+                    lin_slave_underflow <= 1'b1;
+                    irq_status[6] <= 1'b1;
+                end else if (!tx_fifo_empty && !lin_slave_gate_block) begin
                     tx_shift <= build_tx_frame(
                         tx_fifo[tx_tail[FIFO_ADDR_BITS-1:0]],
                         ctrl_parity_en,
@@ -330,6 +377,13 @@ module qar_uart #(
                     tx_bits_remaining <= calc_frame_bits(ctrl_parity_en, ctrl_two_stop);
                     tx_counter <= 0;
                     tx_tail <= tx_tail + 1;
+                    if (lin_slave_tx_pending) begin
+                        if (lin_slave_bytes_remaining <= 8'd1) begin
+                            lin_slave_tx_pending <= 1'b0;
+                        end else begin
+                            lin_slave_bytes_remaining <= lin_slave_bytes_remaining - 1;
+                        end
+                    end
                 end
             end else begin
                 if (tx_counter >= baud_div) begin
@@ -425,6 +479,13 @@ module qar_uart #(
                                 lin_header_valid <= 1'b1;
                                 lin_header_state <= 2'b00;
                                 irq_status[5] <= 1'b1;
+                                if (lin_slave_enable && lin_slave_armed && lin_slave_resp_len != 8'd0 &&
+                                    rx_data_latch == lin_slave_match_id) begin
+                                    lin_slave_tx_pending <= 1'b1;
+                                    lin_slave_bytes_remaining <= lin_slave_resp_len;
+                                    lin_slave_underflow <= 1'b0;
+                                    lin_slave_armed <= 1'b0;
+                                end
                             end
                         end else if (!rx_fifo_full) begin
                             rx_fifo[rx_head[FIFO_ADDR_BITS-1:0]] <= rx_data_latch;
@@ -506,6 +567,7 @@ module qar_uart #(
                 4'h9: rdata = lin_cmd;
                 4'hA: rdata = {24'b0, lin_tx_header_id};
                 4'hB: rdata = {16'b0, lin_id_byte, lin_sync_byte};
+                4'hC: rdata = lin_slave_ctrl;
                 default: rdata = 32'b0;
             endcase
         end

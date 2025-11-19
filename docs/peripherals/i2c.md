@@ -15,9 +15,10 @@
 | 0x14   | TXDATA      | Write pushes a byte into the TX FIFO. |
 | 0x18   | RXDATA      | Read pops a byte from the RX FIFO. |
 | 0x1C   | CMD         | Bit0: START, bit1: STOP, bit2: WRITE byte (consumes TX FIFO), bit3: READ byte (pushes RX FIFO). Auto-cleared on acceptance. |
+| 0x20   | FAULT_STATUS| Sticky diagnostics: bits[23:16] = last byte tied to an error, bits[11:9] = last command (START/WRITE/READ/STOP), bits[8:6] = cause code (1=TX overflow, 2=RX overflow, 3=NACK), bits[5:3] mirror the sticky fault flags. |
 
 ## Behaviour
-- Firmware sequences transactions by loading bytes into `TXDATA` and toggling `CMD` bits for START/STOP/WRITE/READ. Ack/Nack handling is implicit; a missing ACK raises `STATUS[3]` / `IRQ_STATUS[5]` while FIFO overflows assert bits4–5, allowing firmware to distinguish recovery paths before issuing the next command.
+- Firmware sequences transactions by loading bytes into `TXDATA` and toggling `CMD` bits for START/STOP/WRITE/READ. Ack/Nack handling is implicit; a missing ACK raises `STATUS[3]` / `IRQ_STATUS[5]` while FIFO overflows assert bits4–5, allowing firmware to distinguish recovery paths before issuing the next command. The `FAULT_STATUS` register records which command/byte triggered the most recent fault so firmware can log or retry intelligently.
 - TX/RX FIFOs (depth = 4 bytes) absorb CPU latency so START/STOP can be issued back-to-back. `STATUS[1:2]` and the IRQ bits allow polled or interrupt-driven servicing.
 - The current implementation assumes a single master environment and focuses on generating basic START → address → data → STOP flows suitable for EEPROMs and sensors; future work will add repeated-start and clock-stretch tolerance.
 

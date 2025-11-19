@@ -19,6 +19,11 @@ int main(void)
     const uint8_t lin_id = 0x3C;                   /* demo LIN ID */
     qar_uart_lin_set_tx_id(UART_BASE, lin_id);
 
+    /* Configure slave auto-response (2-byte payload) and pre-load data before issuing the master header. */
+    qar_uart_lin_config_slave(UART_BASE, lin_id, 2, 1);
+    qar_uart_lin_arm_slave(UART_BASE);
+    lin_send_payload(0x55, 0xAA);
+
     /* Fire automatic break + Sync/ID */
     qar_uart_lin_request_break(UART_BASE);
     qar_uart_lin_start_auto_header(UART_BASE);
@@ -31,9 +36,6 @@ int main(void)
     qar_uart_clear_irq(UART_BASE, QAR_UART_IRQ_LIN_HEADER);
     volatile uint32_t header = qar_uart_lin_header(UART_BASE);
     (void)header;
-
-    /* Send two-byte payload after the auto header */
-    lin_send_payload(0x55, 0xAA);
 
     while (1) {
         /* Idle loop: a real firmware would now wait for slave response */

@@ -21,6 +21,7 @@
 #define QAR_UART_LIN_CMD(base)    QAR_UART_REG((base), 0x24)
 #define QAR_UART_LIN_TX_ID(base)  QAR_UART_REG((base), 0x28)
 #define QAR_UART_LIN_HEADER(base) QAR_UART_REG((base), 0x2C)
+#define QAR_UART_LIN_SLAVE(base)  QAR_UART_REG((base), 0x30)
 
 #define QAR_UART_CTRL_ENABLE     (1u << 0)
 #define QAR_UART_CTRL_PARITY_EN  (1u << 1)
@@ -37,6 +38,8 @@
 #define QAR_UART_STATUS_LIN_BREAK  (1u << 7)
 #define QAR_UART_STATUS_LIN_HEADER (1u << 8)
 #define QAR_UART_STATUS_LIN_SYNCERR (1u << 9)
+#define QAR_UART_STATUS_LIN_RESP    (1u << 10)
+#define QAR_UART_STATUS_LIN_UNDERFLOW (1u << 11)
 
 #define QAR_UART_IRQ_RX_READY    (1u << 0)
 #define QAR_UART_IRQ_TX_EMPTY    (1u << 1)
@@ -44,6 +47,7 @@
 #define QAR_UART_IRQ_IDLE        (1u << 3)
 #define QAR_UART_IRQ_LIN_BREAK   (1u << 4)
 #define QAR_UART_IRQ_LIN_HEADER  (1u << 5)
+#define QAR_UART_IRQ_LIN_SLAVE   (1u << 6)
 
 static inline void qar_uart_init(uint32_t base, uint32_t baud_divider, uint32_t ctrl_flags)
 {
@@ -107,6 +111,24 @@ static inline void qar_uart_lin_set_tx_id(uint32_t base, uint8_t id)
 static inline void qar_uart_lin_start_auto_header(uint32_t base)
 {
     QAR_UART_LIN_CMD(base) = 0x8;
+}
+
+static inline void qar_uart_lin_config_slave(uint32_t base, uint8_t match_id, uint8_t length, int enable)
+{
+    uint32_t value = ((uint32_t)match_id << 8) | (uint32_t)(length & 0xFFu);
+    if (enable)
+        value |= (1u << 16);
+    QAR_UART_LIN_SLAVE(base) = value;
+}
+
+static inline void qar_uart_lin_arm_slave(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x10;
+}
+
+static inline void qar_uart_lin_cancel_slave(uint32_t base)
+{
+    QAR_UART_LIN_CMD(base) = 0x20;
 }
 
 static inline uint32_t qar_uart_lin_header(uint32_t base)

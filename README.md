@@ -97,6 +97,15 @@ go run ./devkit/cli run \
   --dmem 256
 ```
 
+Repeat `--c` to compile multiple sources in one build, and pass extra compiler or linker options via `--cflags`/`--ldflags` or the `QAR_CFLAGS`/`QAR_LDFLAGS` environment variables.
+
+
+When `qarsim` is invoked with `--c`, it automatically links the SDK runtime (`devkit/sdk/crt0.S`, `runtime.c`, `hal_init.c`).
+The runtime installs a constructor that calls `qar_sdk_init()` before `main()`, and the default implementation in `devkit/sdk/hal_init.c`
+brings GPIO, UART/RS-485/LIN, timers, CAN, SPI, I²C, and ADC into a known disabled state so C firmware always boots from a safe baseline.
+Firmware that requires a custom policy can simply provide its own `qar_sdk_init()` and it will override the default.
+
+
 ### Host-side C Utilities
 To round out the open-source toolchain, the repository now includes small portable C helpers. The first one, `devkit/tools/qhex`, inspects QAR hex images and can emit raw little-endian binaries for FPGA ROM initialisation:
 
@@ -116,7 +125,7 @@ See `docs/devkit/qhex.md` for more details.
 - `devkit/examples/irq_demo.qar` — sets up `mtvec/mie/mtimecmp`, handles timer + external interrupts, and validates ECALL/MRET flows.
 - `devkit/examples/c/gpio_irq_demo.c` — first C/HAL example that configures GPIO IRQs; see `docs/devkit/sdk.md` for the SDK roadmap.
 - `devkit/examples/c/can_loopback.c` — C-based CAN loopback sample using the new quiet/filter-bypass controls.
-- `devkit/examples/c/lin_auto_header.c` — demonstrates the UART HAL’s LIN auto-header sequence from C firmware.
+- `devkit/examples/c/lin_auto_header.c` — demonstrates the UART HAL’s LIN auto-header sequence and the new slave auto-response gate entirely from C firmware.
 - `devkit/examples/c/timer_pwm_demo.c` — configures timer PWM outputs routed onto GPIO pins and reads capture values for diagnostics.
 - `devkit/examples/c/i2c_loopback.c` — replicates the loopback START/WRITE/STOP sequence using the I²C HAL.
 - `devkit/examples/c/spi_loopback.c` — simple SPI loopback transfer using the SPI HAL.
@@ -174,7 +183,7 @@ Builds the `uart_rs485` program and runs a loopback testbench that exercises the
 ```sh
 ./scripts/run_lin.sh
 ```
-Requests a LIN-style break, verifies the break interrupt/status bits, and demonstrates the new LIN control registers by looping the UART back into itself. The demo now uses the hardware auto-header sequencer (break + Sync/ID) so firmware only needs to supply payload bytes—exactly how a BCM master would poll its LIN slaves.
+Requests a LIN-style break, verifies the break interrupt/status bits, and demonstrates the new LIN control registers by looping the UART back into itself. The demo now uses the hardware auto-header sequencer (break + Sync/ID) plus the new slave auto-response gate: firmware preloads its payload, arms the response, and the UART transmits only when the captured header ID matches—mirroring how a BCM master polls and slaves reply without firmware babysitting bits.
 
 ## Timer / Watchdog Demo
 ```sh
@@ -193,13 +202,13 @@ Builds the `adc_demo` program and feeds deterministic 12-bit values into the new
 ```sh
 ./scripts/run_spi.sh
 ```
-Builds the `spi_loopback` program and runs a testbench that loops MOSI back into MISO, proving that the new SPI master’s TX/RX FIFOs, chip-select handling, and polling interface work end-to-end by checking the received bytes in DMEM.
+Builds the `spi_loopback` program and runs a testbench that loops MOSI back into MISO, proving that the new SPI master’s TX/RX FIFOs, chip-select handling, and polling interface work end-to-end by checking the received bytes in DMEM. The new `FAULT_STATUS` register also exposes the last fault’s byte/CS/cause for field diagnostics.
 
 ## I2C Loopback Demo
 ```sh
 ./scripts/run_i2c.sh
 ```
-Builds the `i2c_loopback` firmware and runs a testbench that ties the controller’s SDA output back into its input. The program issues a START followed by two writes and a STOP, then stores the resulting STATUS word into DMEM to verify the new I2C master registers and FIFOs.
+Builds the `i2c_loopback` firmware and runs a testbench that ties the controller’s SDA output back into its input. The program issues a START followed by two writes and a STOP, then stores the resulting STATUS word into DMEM to verify the new I2C master registers and FIFOs. Firmware can now query `FAULT_STATUS` to see which command/byte triggered the most recent NACK or FIFO overflow.
 
 ## CAN Loopback Demo
 ```sh

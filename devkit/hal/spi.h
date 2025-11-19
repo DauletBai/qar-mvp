@@ -16,6 +16,7 @@
 #define QAR_SPI_CS(base)       QAR_SPI_REG((base), 0x14)
 #define QAR_SPI_IRQ_EN(base)   QAR_SPI_REG((base), 0x18)
 #define QAR_SPI_IRQ_STATUS(base) QAR_SPI_REG((base), 0x1C)
+#define QAR_SPI_FAULT_STATUS(base) QAR_SPI_REG((base), 0x20)
 
 #define QAR_SPI_CTRL_ENABLE    (1u << 0)
 #define QAR_SPI_CTRL_CPOL      (1u << 1)
@@ -61,6 +62,11 @@ static inline uint32_t qar_spi_read(uint32_t base)
     while ((QAR_SPI_STATUS(base) & QAR_SPI_STATUS_RX_VALID) == 0)
         ;
     return QAR_SPI_RXDATA(base);
+}
+
+static inline uint32_t qar_spi_fault_status(uint32_t base)
+{
+    return QAR_SPI_FAULT_STATUS(base);
 }
 
 #endif /* QAR_HAL_SPI_H */
