@@ -79,7 +79,7 @@ graph TD
     CAN_Ctrl <--> CAN_PHY <--> Terminals_CAN
 ```
 
-This functional block diagram (sourced from the Gemini 3 Pro analysis) now lives inside the plan so hardware engineers see the logical partitioning before schematic capture.
+This functional block diagram now lives inside the plan so hardware engineers see the logical partitioning before schematic capture.
 
 ## Architecture Overview
 
