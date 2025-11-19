@@ -241,6 +241,7 @@ PATH=$HOME/.local/bin:$PATH sby -f formal/regfile/regfile.sby
 # Documentation
 - [Architecture specification](docs/qar-industrial-core.md)
 - [Status report](docs/status-report.md)
+- [Industrial brick plan](docs/industrial-brick.md)
 
 # Vision
 

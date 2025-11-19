@@ -16,7 +16,7 @@ This document captures the definition of the “universal industrial computer”
 
 ### 2.1 CPU Subsystem
 - RV32IM core (QAR-Core v0.7 baseline): three-stage pipeline, forwarding, load-use interlocks.
-- Optional instruction cache (line size configurable) + data buffer with single outstanding miss.
+- Optional instruction cache (line size configurable) + data buffer with single outstanding miss. FPGA reference designs will prefer tightly coupled SRAM (TCM) mapped alongside IMEM/DMEM to guarantee deterministic latency per Gemini’s recommendation.
 - Full interrupt system (timer + external sources, priority controller, nested support).
 - Memory protection hooks (initially PMP-like regions to guard IO vs. program space).
 
@@ -64,6 +64,8 @@ This document captures the definition of the “universal industrial computer”
 ## 4. Hardware Implementation Plan
 
 ### Phase 1 (FPGA-based reference)
+Refer to [docs/industrial-brick.md](industrial-brick.md) for the concrete board- and enclosure-level plan that turns this RTL + SDK into a DIN-rail ready controller.
+
 1. RTL integration:
    - Adopt a two-layer bus: a lightweight AXI-lite bridge for memory (Flash/SRAM) and a peripheral APB window mapped to 0x4000_0000+.  
    - Implement the following blocks with initial address map:  
