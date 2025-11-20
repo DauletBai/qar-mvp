@@ -1,0 +1,15 @@
+[options]
+mode bmc
+depth 12
+expect pass
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal qar-core/rtl/gpio.v formal/gpio/gpio_formal_tb.v
+prep -top gpio_formal_tb
+
+[files]
+qar-core/rtl/gpio.v
+formal/gpio/gpio_formal_tb.v

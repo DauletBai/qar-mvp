@@ -1,0 +1,15 @@
+[options]
+mode bmc
+depth 12
+expect pass
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal qar-core/rtl/timer.v formal/timer/timer_formal_tb.v
+prep -top timer_formal_tb
+
+[files]
+qar-core/rtl/timer.v
+formal/timer/timer_formal_tb.v
