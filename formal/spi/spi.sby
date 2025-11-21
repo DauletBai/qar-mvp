@@ -1,0 +1,15 @@
+[options]
+mode bmc
+depth 12
+expect pass
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal qar-core/rtl/spi.v formal/spi/spi_formal_tb.v
+prep -top spi_formal_tb
+
+[files]
+qar-core/rtl/spi.v
+formal/spi/spi_formal_tb.v

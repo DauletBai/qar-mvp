@@ -1,0 +1,15 @@
+[options]
+mode bmc
+depth 12
+expect pass
+
+[engines]
+smtbmc boolector
+
+[script]
+read -formal qar-core/rtl/i2c.v formal/i2c/i2c_formal_tb.v
+prep -top i2c_formal_tb
+
+[files]
+qar-core/rtl/i2c.v
+formal/i2c/i2c_formal_tb.v
